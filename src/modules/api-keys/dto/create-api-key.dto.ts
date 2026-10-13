@@ -13,7 +13,7 @@ export class CreateApiKeyDto {
   @MaxLength(200)
   note?: string;
 
-  // empty na never expire
+  // empty means never expire
   @IsOptional()
   @IsInt()
   @Min(1)

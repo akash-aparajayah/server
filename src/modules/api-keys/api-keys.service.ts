@@ -13,6 +13,7 @@ import { sha256 } from '../../common/utils/hash.util.js';
 
 const KEY_PREFIX = 'rk_live_';
 const LAST_USED_THROTTLE_MS = 60_000; // 1 min ku oru thadava mattum write
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class ApiKeysService {
@@ -21,49 +22,106 @@ export class ApiKeysService {
     private readonly instances: InstancesService,
   ) {}
 
-  // "Create token" button
+  // ---------- helpers ----------
+
+  private generateKey() {
+    const rawKey = KEY_PREFIX + randomBytes(32).toString('base64url');
+    return {
+      rawKey,
+      keyHash: sha256(rawKey),
+      prefix: rawKey.slice(0, 12),
+    };
+  }
+
+  private calcExpiry(expiresInDays?: number) {
+    return expiresInDays ? new Date(Date.now() + expiresInDays * DAY_MS) : null;
+  }
+
+  // raw key response la oru thadava mattum varum
+  private toCreateResponse(doc: ApiKeyDocument, rawKey: string) {
+    return {
+      id: doc._id,
+      instanceId: doc.instanceId,
+      note: doc.note,
+      prefix: doc.prefix,
+      expiresAt: doc.expiresAt,
+      key: rawKey,
+    };
+  }
+
+  // ---------- "Create token" button ----------
+
   async create(instanceId: string, dto: CreateApiKeyDto, user: AuthUser) {
     await this.instances.findOne(instanceId, user); // owner check (404 / 403)
 
-    const rawKey = KEY_PREFIX + randomBytes(32).toString('base64url');
-    const expiresAt = dto.expiresInDays
-      ? new Date(Date.now() + dto.expiresInDays * 24 * 60 * 60 * 1000)
-      : null;
+    const { rawKey, keyHash, prefix } = this.generateKey();
 
     try {
       const doc = await this.apiKeyModel.create({
         instanceId,
         note: dto.note,
-        keyHash: sha256(rawKey),
-        prefix: rawKey.slice(0, 12),
-        expiresAt,
+        keyHash,
+        prefix,
+        expiresAt: this.calcExpiry(dto.expiresInDays),
         createdBy: user.sub,
       });
-
-      // raw key idhu oru thadava mattum varum, thirumba paakka mudiyadhu
-      return {
-        id: doc._id,
-        instanceId: doc.instanceId,
-        note: doc.note,
-        prefix: doc.prefix,
-        expiresAt: doc.expiresAt,
-        key: rawKey,
-      };
+      return this.toCreateResponse(doc, rawKey);
     } catch (e: any) {
       if (e.code === 11000) {
         throw new ConflictException(
-          'This instance already has an active key. Revoke it first.',
+          'This instance already has an active key. Revoke or regenerate it.',
         );
       }
       throw e;
     }
   }
 
+  // ---------- list (keyHash select:false, so varaadhu) ----------
+
   async findByInstance(instanceId: string, user: AuthUser) {
     await this.instances.findOne(instanceId, user); // owner check
-    // keyHash select:false, so response la varaadhu
     return this.apiKeyModel.find({ instanceId }).sort({ createdAt: -1 }).exec();
   }
+
+  // ---------- "Regenerate" button ----------
+
+  async regenerate(id: string, dto: CreateApiKeyDto, user: AuthUser) {
+    const old = await this.apiKeyModel.findById(id).exec();
+    if (!old) throw new NotFoundException('API key not found');
+
+    await this.instances.findOne(old.instanceId.toString(), user); // owner check
+
+    if (!old.isActive) {
+      throw new ConflictException(
+        'This key is already revoked. Create a new one instead.',
+      );
+    }
+
+    // pazhaya key first revoke (partial unique index free aaganum)
+    old.isActive = false;
+    await old.save();
+
+    const { rawKey, keyHash, prefix } = this.generateKey();
+
+    try {
+      const doc = await this.apiKeyModel.create({
+        instanceId: old.instanceId,
+        note: dto.note ?? old.note, // note anuppala na pazhaya note keep
+        keyHash,
+        prefix,
+        expiresAt: this.calcExpiry(dto.expiresInDays),
+        createdBy: user.sub,
+      });
+      return this.toCreateResponse(doc, rawKey);
+    } catch (e) {
+      // create fail aana pazhaya key thirumba active
+      old.isActive = true;
+      await old.save();
+      throw e;
+    }
+  }
+
+  // ---------- revoke ----------
 
   async revoke(id: string, user: AuthUser) {
     const key = await this.apiKeyModel.findById(id).exec();
@@ -76,7 +134,8 @@ export class ApiKeysService {
     return { revoked: true };
   }
 
-  // ApiKeyGuard use pannum
+  // ---------- ApiKeyGuard use pannum ----------
+
   async validate(rawKey: string) {
     const key = await this.apiKeyModel
       .findOne({ keyHash: sha256(rawKey), isActive: true })
