@@ -11,8 +11,8 @@ import { CreateApiKeyDto } from './dto/create-api-key.dto.js';
 import { AuthUser, InstancesService } from '../instances/instances.service.js';
 import { sha256 } from '../../common/utils/hash.util.js';
 
-const KEY_PREFIX = 'rk_live_';
-const LAST_USED_THROTTLE_MS = 60_000; // 1 min ku oru thadava mattum write
+const KEY_PREFIX = 'market_live_';
+const LAST_USED_THROTTLE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -29,7 +29,7 @@ export class ApiKeysService {
     return {
       rawKey,
       keyHash: sha256(rawKey),
-      prefix: rawKey.slice(0, 12),
+      prefix: rawKey.slice(0, 15),
     };
   }
 
@@ -37,7 +37,6 @@ export class ApiKeysService {
     return expiresInDays ? new Date(Date.now() + expiresInDays * DAY_MS) : null;
   }
 
-  // raw key response la oru thadava mattum varum
   private toCreateResponse(doc: ApiKeyDocument, rawKey: string) {
     return {
       id: doc._id,
@@ -76,7 +75,7 @@ export class ApiKeysService {
     }
   }
 
-  // ---------- list (keyHash select:false, so varaadhu) ----------
+  // ---------- list ----------
 
   async findByInstance(instanceId: string, user: AuthUser) {
     await this.instances.findOne(instanceId, user); // owner check
