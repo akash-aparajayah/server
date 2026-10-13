@@ -12,6 +12,7 @@ import { BundlesModule } from './modules/bundles/bundles.module.js';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module.js';
 import { MarginsModule } from './modules/margins/margins.module.js';
 import databaseConfig from './config/database.config.js';
+import { ProductsModule } from './modules/products/products.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import databaseConfig from './config/database.config.js';
     BundlesModule,
     ApiKeysModule,
     MarginsModule,
+    ProductsModule
   ],
 
   controllers: [AppController],
