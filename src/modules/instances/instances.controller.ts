@@ -17,17 +17,17 @@ import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 export class InstancesController {
   constructor(private readonly instancesService: InstancesService) {}
 
-  @Post()
+  @Post('create-instance')
   create(@Body() dto: CreateInstanceDto, @CurrentUser() user: any) {
     return this.instancesService.create(dto, user.sub);
   }
 
-  @Get()
+  @Get('get-all-instance')
   findAll(@CurrentUser() user: any) {
     return this.instancesService.findAll(user);
   }
 
-  @Get(':id')
+  @Get(':id/get-instance')
   findOne(
     @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: any,
@@ -35,7 +35,7 @@ export class InstancesController {
     return this.instancesService.findOne(id, user);
   }
 
-  @Patch(':id')
+  @Patch(':id/update-instance')
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateInstanceDto,
@@ -44,7 +44,7 @@ export class InstancesController {
     return this.instancesService.update(id, dto, user);
   }
 
-  @Delete(':id')
+  @Delete(':id/remove-instance')
   remove(@Param('id', ParseObjectIdPipe) id: string, @CurrentUser() user: any) {
     return this.instancesService.remove(id, user);
   }
