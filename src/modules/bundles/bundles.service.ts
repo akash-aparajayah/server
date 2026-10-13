@@ -1,83 +1,86 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Bundle, BundleDocument, PricingType } from './schemas/bundle.schema.js';
+import { Model } from 'mongoose';
+import sanitizeHtml from 'sanitize-html';
+import { Bundle, BundleDocument } from './schemas/bundle.schema.js';
 import { CreateBundleDto } from './dto/create-bundle.dto.js';
 import { UpdateBundleDto } from './dto/update-bundle.dto.js';
-import { BundleQueryDto } from './dto/bundle-query.dto.js';
-
-const SORTABLE = ['name', 'pricingType', 'price', 'status', 'createdAt', 'updatedAt'];
+import { Status } from '../../common/enums/status.enum.js';
 
 @Injectable()
 export class BundlesService {
-  constructor(@InjectModel(Bundle.name) private model: Model<BundleDocument>) {}
+  constructor(
+    @InjectModel(Bundle.name) private bundleModel: Model<BundleDocument>,
+  ) {}
 
-  // price/discount only apply to add-ons; bundles have no price
-  private pricing(type: PricingType, price?: number, discount?: number) {
-    if (type !== PricingType.AddOn || price == null) {
-      return { price: undefined, discount: undefined, sellingPrice: undefined };
-    }
-    const d = discount ?? 0;
-    return { price, discount: d, sellingPrice: +(price - (price * d) / 100).toFixed(2) };
+  private clean(html: string) {
+    return sanitizeHtml(html, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+        'h1',
+        'h2',
+        'img',
+        'u',
+      ]),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        '*': ['style'],
+      },
+    });
   }
 
-  async create(userId: string, dto: CreateBundleDto) {
+  async create(dto: CreateBundleDto, userId: string) {
     try {
-      return await this.model.create({
+      return await this.bundleModel.create({
         ...dto,
-        ...this.pricing(dto.pricingType, dto.price, dto.discount),
+        longDescription: this.clean(dto.longDescription),
         createdBy: userId,
         updatedBy: userId,
       });
     } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('Short code already exists');
+      if (e.code === 11000)
+        throw new ConflictException('Short code already exists');
       throw e;
     }
   }
 
-  async findAll(q: BundleQueryDto) {
-    const filter: Record<string, any> = {};
-    if (q.search) {
-      const rx = { $regex: q.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
-      filter.$or = [{ name: rx }, { shortCode: rx }];
-    }
-    if (q.status) filter.status = q.status;
-    if (q.pricingType) filter.pricingType = q.pricingType;
-
-    const sortBy = SORTABLE.includes(q.sortBy) ? q.sortBy : 'createdAt';
-    const [data, total] = await Promise.all([
-      this.model
-        .find(filter)
-        .select('-longDescription') // keep the list light
-        .populate('createdBy updatedBy', 'name')
-        .sort({ [sortBy]: q.order === 'asc' ? 1 : -1 })
-        .skip((q.page - 1) * q.limit)
-        .limit(q.limit)
-        .exec(),
-      this.model.countDocuments(filter),
-    ]);
-    return { data, total, page: q.page, limit: q.limit, totalPages: Math.ceil(total / q.limit) };
+  findAll(onlyActive = false) {
+    return this.bundleModel
+      .find(onlyActive ? { status: Status.Active } : {})
+      .sort({ createdAt: -1 })
+      .exec();
   }
 
   async findOne(id: string) {
-    const doc = await this.model.findById(id).populate('createdBy updatedBy', 'name').exec();
-    if (!doc) throw new NotFoundException('Bundle not found');
-    return doc;
+    const bundle = await this.bundleModel.findById(id).exec();
+    if (!bundle) throw new NotFoundException('Bundle not found');
+    return bundle;
   }
 
-  async update(id: string, userId: string, dto: UpdateBundleDto) {
-    const doc = await this.model.findById(id).exec();
-    if (!doc) throw new NotFoundException('Bundle not found');
-
-    Object.assign(doc, dto);
-    Object.assign(doc, this.pricing(doc.pricingType, doc.price, doc.discount));
-    doc.updatedBy = new Types.ObjectId(userId);
+  async update(id: string, dto: UpdateBundleDto, userId: string) {
+    const data: any = { ...dto, updatedBy: userId };
+    if (dto.longDescription)
+      data.longDescription = this.clean(dto.longDescription);
 
     try {
-      return await doc.save();
+      const bundle = await this.bundleModel
+        .findByIdAndUpdate(id, data, { new: true, runValidators: true })
+        .exec();
+      if (!bundle) throw new NotFoundException('Bundle not found');
+      return bundle;
     } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('Short code already exists');
+      if (e.code === 11000)
+        throw new ConflictException('Short code already exists');
       throw e;
     }
+  }
+
+  async remove(id: string) {
+    const bundle = await this.bundleModel.findByIdAndDelete(id).exec();
+    if (!bundle) throw new NotFoundException('Bundle not found');
+    return { deleted: true };
   }
 }

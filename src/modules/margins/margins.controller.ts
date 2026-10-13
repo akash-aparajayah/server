@@ -1,42 +1,57 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { MarginsService } from './margins.service.js';
 import { CreateMarginDto } from './dto/create-margin.dto.js';
 import { UpdateMarginDto } from './dto/update-margin.dto.js';
-import { MarginQueryDto } from './dto/margin-query.dto.js';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { Role } from '../../common/enums/role.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
+@Roles(Role.ADMIN)
 @Controller('margins')
 export class MarginsController {
-  constructor(private readonly service: MarginsService) {}
+  constructor(private readonly marginsService: MarginsService) {}
 
   @Post()
-  create(@CurrentUser() user: { userId: string }, @Body() dto: CreateMarginDto) {
-    return this.service.create(user.userId, dto);
+  create(@Body() dto: CreateMarginDto, @CurrentUser() user: any) {
+    return this.marginsService.create(dto, user.sub);
   }
 
   @Get()
-  findAll(@Query() query: MarginQueryDto) {
-    return this.service.findAll(query);
+  findAll() {
+    return this.marginsService.findAll();
+  }
+
+  // ':id' ku munnadi irukkanum
+  @Get('product/:productId')
+  findByProduct(@Param('productId', ParseObjectIdPipe) productId: string) {
+    return this.marginsService.findByProduct(productId);
   }
 
   @Get(':id')
   findOne(@Param('id', ParseObjectIdPipe) id: string) {
-    return this.service.findOne(id);
+    return this.marginsService.findOne(id);
   }
 
   @Patch(':id')
   update(
     @Param('id', ParseObjectIdPipe) id: string,
-    @CurrentUser() user: { userId: string },
     @Body() dto: UpdateMarginDto,
+    @CurrentUser() user: any,
   ) {
-    return this.service.update(id, user.userId, dto);
+    return this.marginsService.update(id, dto, user.sub);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.marginsService.remove(id);
   }
 }

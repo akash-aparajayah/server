@@ -1,4 +1,10 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { Role } from '../../../common/enums/role.enum.js';
 
 export class CreateUserDto {
@@ -14,10 +20,9 @@ export class CreateUserDto {
   password: string;
 
   @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @IsOptional()
   @IsEnum(Role)
   role?: Role;
+
+  @IsString()
+  refreshTokenHash?: string;
 }

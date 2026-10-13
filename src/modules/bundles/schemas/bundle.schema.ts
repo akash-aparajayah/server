@@ -9,6 +9,11 @@ export enum PricingType {
   Bundle = 'bundle',
 }
 
+export enum DiscountType {
+  Percentage = 'percentage',
+  Fixed = 'fixed',
+}
+
 @Schema({ _id: false })
 export class BundleTemplate {
   @Prop({ required: true, trim: true }) title: string;
@@ -26,7 +31,7 @@ export const BundleTemplateSchema = SchemaFactory.createForClass(BundleTemplate)
 export class Bundle {
   // 1. Basic info
   @Prop({ required: true, trim: true }) name: string;
-  @Prop({ required: true, unique: true, trim: true }) shortCode: string;
+  @Prop({ required: true, unique: true, trim: true, uppercase: true }) shortCode: string;
   @Prop({ required: true }) iconFamily: string;
   @Prop({ required: true }) appIcon: string;
   @Prop() webIcon?: string;
@@ -35,16 +40,17 @@ export class Bundle {
   @Prop({ type: String, enum: Status, default: Status.Active }) status: Status;
 
   // pricing (add-on only)
-  @Prop() price?: number;
-  @Prop() discount?: number; // percent
-  @Prop() sellingPrice?: number;
+  @Prop({ min: 0 }) price?: number;
+  @Prop({ default: false }) hasDiscount: boolean;
+  @Prop({ type: String, enum: DiscountType }) discountType?: DiscountType;
+  @Prop({ min: 0 }) discountValue?: number;
 
   // 2. Client-facing content
-  @Prop({ required: true }) longDescription: string; // HTML from the rich text editor
+  @Prop({ required: true }) longDescription: string;
   @Prop({ type: [String], default: [] }) benefits: string[];
   @Prop() supportPhone?: string;
   @Prop() websiteUrl?: string;
-  @Prop() promoCode?: string;
+  @Prop({ trim: true, uppercase: true }) promoCode?: string;
   @Prop() promoCodeUsageNote?: string;
   @Prop() disclosure?: string;
   @Prop() disclaimer?: string;
@@ -52,11 +58,23 @@ export class Bundle {
   @Prop() insuranceInstructions?: string;
 
   // 3. Template
-  @Prop({ type: BundleTemplateSchema, required: true })
-  template: BundleTemplate;
+  @Prop({ type: BundleTemplateSchema, required: true }) template: BundleTemplate;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' }) createdBy: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User' }) updatedBy: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true }) createdBy: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true }) updatedBy: Types.ObjectId;
 }
 
 export const BundleSchema = SchemaFactory.createForClass(Bundle);
+
+BundleSchema.virtual('sellingPrice').get(function (this: BundleDocument) {
+  if (this.price == null) return undefined;
+  if (!this.hasDiscount || !this.discountValue) return this.price;
+  const off =
+    this.discountType === DiscountType.Percentage
+      ? (this.price * this.discountValue) / 100
+      : this.discountValue;
+  return Math.max(this.price - off, 0);
+});
+
+BundleSchema.set('toJSON', { virtuals: true });
+BundleSchema.set('toObject', { virtuals: true });

@@ -1,20 +1,22 @@
-import { IsEnum, IsMongoId, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsEnum, IsMongoId, IsNumber, Min } from 'class-validator';
 import { MarkupType } from '../schemas/margin.schema.js';
 
 export class CreateMarginDto {
   @IsMongoId()
-  productId: string;
+  product: string;
 
-  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0)
+  @IsNumber()
+  @Min(0.01) // 0 irundha percent calc la divide-by-zero
   wholesalePrice: number;
 
-  // only needed when the product has no price of its own
-  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0)
-  retailPrice?: number;
+  @IsNumber()
+  @Min(0)
+  retailPrice: number;
 
   @IsEnum(MarkupType)
   markupType: MarkupType;
 
-  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0)
+  @IsNumber()
+  @Min(0)
   markupValue: number;
 }

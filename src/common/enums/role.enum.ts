@@ -1,5 +1,5 @@
+// common/enums/role.enum.ts
 export enum Role {
-  Buyer = 'buyer',
-  Seller = 'seller',
-  Admin = 'admin',
+  ADMIN = 'admin',
+  USER = 'user',
 }

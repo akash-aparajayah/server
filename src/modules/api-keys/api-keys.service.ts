@@ -1,115 +1,109 @@
 import {
-  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { createHash, randomBytes } from 'crypto';
 import { Model } from 'mongoose';
+import { randomBytes } from 'crypto';
 import { ApiKey, ApiKeyDocument } from './schemas/api-key.schema.js';
 import { CreateApiKeyDto } from './dto/create-api-key.dto.js';
-import { RegenerateApiKeyDto } from './dto/regenerate-api-key.dto.js';
+import { AuthUser, InstancesService } from '../instances/instances.service.js';
+import { sha256 } from '../../common/utils/hash.util.js';
 
-const DAY_MS = 86_400_000;
+const KEY_PREFIX = 'rk_live_';
+const LAST_USED_THROTTLE_MS = 60_000; // 1 min ku oru thadava mattum write
 
 @Injectable()
 export class ApiKeysService {
-  constructor(@InjectModel(ApiKey.name) private model: Model<ApiKeyDocument>) {}
+  constructor(
+    @InjectModel(ApiKey.name) private apiKeyModel: Model<ApiKeyDocument>,
+    private readonly instances: InstancesService,
+  ) {}
 
-  private generate() {
-    const prefix = randomBytes(3).toString('hex'); // e.g. a3f9b2
-    const key = `${prefix}_${randomBytes(32).toString('hex')}`;
-    const keyHash = createHash('sha256').update(key).digest('hex');
-    return { prefix, key, keyHash };
-  }
+  // "Create token" button
+  async create(instanceId: string, dto: CreateApiKeyDto, user: AuthUser) {
+    await this.instances.findOne(instanceId, user); // owner check (404 / 403)
 
-  private expiry(days?: number) {
-    return days ? new Date(Date.now() + days * DAY_MS) : null;
-  }
+    const rawKey = KEY_PREFIX + randomBytes(32).toString('base64url');
+    const expiresAt = dto.expiresInDays
+      ? new Date(Date.now() + dto.expiresInDays * 24 * 60 * 60 * 1000)
+      : null;
 
-  private safe(doc: ApiKeyDocument) {
-    const { keyHash: _omit, ...rest } = doc.toObject();
-    return rest;
-  }
-
-  /* -------- CREATE -------- */
-  async create(userId: string, dto: CreateApiKeyDto) {
-    const { prefix, key, keyHash } = this.generate();
     try {
-      const doc = await this.model.create({
-        projectId: dto.projectId,
-        environmentId: dto.environmentId,
+      const doc = await this.apiKeyModel.create({
+        instanceId,
         note: dto.note,
-        mode: dto.mode,
-        keyHash,
-        prefix,
-        expiresInDays: dto.expiresInDays ?? null,
-        expiresAt: this.expiry(dto.expiresInDays),
-        createdBy: userId,
+        keyHash: sha256(rawKey),
+        prefix: rawKey.slice(0, 12),
+        expiresAt,
+        createdBy: user.sub,
       });
-      return { ...this.safe(doc), key }; // raw key shown only this once
+
+      // raw key idhu oru thadava mattum varum, thirumba paakka mudiyadhu
+      return {
+        id: doc._id,
+        instanceId: doc.instanceId,
+        note: doc.note,
+        prefix: doc.prefix,
+        expiresAt: doc.expiresAt,
+        key: rawKey,
+      };
     } catch (e: any) {
-      if (e.code === 11000) throw new BadRequestException('API key already exists');
+      if (e.code === 11000) {
+        throw new ConflictException(
+          'This instance already has an active key. Revoke it first.',
+        );
+      }
       throw e;
     }
   }
 
-  /* -------- REGENERATE -------- */
-  async regenerate(id: string, dto: RegenerateApiKeyDto) {
-    const doc = await this.model.findOne({ _id: id, isDeleted: false }).exec();
-    if (!doc) throw new NotFoundException('API key not found');
-
-    const { prefix, key, keyHash } = this.generate();
-    doc.keyHash = keyHash;
-    doc.prefix = prefix;
-    if (dto.note !== undefined) doc.note = dto.note;
-    doc.expiresInDays = dto.expiresInDays ?? null;
-    doc.expiresAt = this.expiry(dto.expiresInDays);
-    doc.lastUsedAt = null;
-    doc.isActive = true;
-
-    try {
-      await doc.save();
-    } catch (e: any) {
-      if (e.code === 11000) throw new BadRequestException('An active key already exists');
-      throw e;
-    }
-    return { ...this.safe(doc), key };
+  async findByInstance(instanceId: string, user: AuthUser) {
+    await this.instances.findOne(instanceId, user); // owner check
+    // keyHash select:false, so response la varaadhu
+    return this.apiKeyModel.find({ instanceId }).sort({ createdAt: -1 }).exec();
   }
 
-  /* -------- LIST -------- */
-  findAll(projectId?: string) {
-    return this.model
-      .find({ isDeleted: false, ...(projectId ? { projectId } : {}) })
-      .select('-keyHash')
-      .sort({ createdAt: -1 })
-      .exec();
+  async revoke(id: string, user: AuthUser) {
+    const key = await this.apiKeyModel.findById(id).exec();
+    if (!key) throw new NotFoundException('API key not found');
+
+    await this.instances.findOne(key.instanceId.toString(), user); // owner check
+
+    key.isActive = false;
+    await key.save();
+    return { revoked: true };
   }
 
-  /* -------- DELETE (soft) -------- */
-  async remove(id: string) {
-    const doc = await this.model
-      .findOneAndUpdate({ _id: id, isDeleted: false }, { isDeleted: true, isActive: false })
-      .exec();
-    if (!doc) throw new NotFoundException('API key not found');
-    return { deleted: true };
-  }
-
-  /* -------- VALIDATE (used by ApiKeyGuard) -------- */
+  // ApiKeyGuard use pannum
   async validate(rawKey: string) {
-    const keyHash = createHash('sha256').update(rawKey).digest('hex');
-    const doc = await this.model
-      .findOne({ keyHash, isActive: true, isDeleted: false })
-      .select('-keyHash')
+    const key = await this.apiKeyModel
+      .findOne({ keyHash: sha256(rawKey), isActive: true })
+      .exec();
+    if (!key) return null;
+
+    if (key.expiresAt && key.expiresAt.getTime() < Date.now()) return null;
+
+    const instance = await this.instances.findActiveById(
+      key.instanceId.toString(),
+    );
+    if (!instance) return null; // instance delete / inactive na key work aagadhu
+
+    const threshold = new Date(Date.now() - LAST_USED_THROTTLE_MS);
+    await this.apiKeyModel
+      .updateOne(
+        {
+          _id: key._id,
+          $or: [{ lastUsedAt: null }, { lastUsedAt: { $lt: threshold } }],
+        },
+        { lastUsedAt: new Date() },
+      )
       .exec();
 
-    if (!doc) throw new UnauthorizedException('Invalid API key');
-    if (doc.expiresAt && doc.expiresAt.getTime() < Date.now()) {
-      throw new UnauthorizedException('API key expired');
-    }
-
-    this.model.updateOne({ _id: doc._id }, { lastUsedAt: new Date() }).exec().catch(() => {});
-    return doc;
+    return {
+      keyId: key._id.toString(),
+      instanceId: key.instanceId.toString(),
+    };
   }
 }

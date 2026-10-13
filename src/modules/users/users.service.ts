@@ -1,17 +1,24 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { User, UserDocument } from './schemas/user.schema.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
+import { sha256 } from '../../common/utils/hash.util.js';
 
 @Injectable()
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async create(dto: CreateUserDto) {
-    const exists = await this.userModel.exists({ email: dto.email.toLowerCase() });
+    const exists = await this.userModel.exists({
+      email: dto.email.toLowerCase(),
+    });
     if (exists) throw new ConflictException('Email already registered');
 
     const password = await bcrypt.hash(dto.password, 10);
@@ -33,11 +40,16 @@ export class UsersService {
 
   // used later by auth: includes the password hash
   findByEmail(email: string) {
-    return this.userModel.findOne({ email: email.toLowerCase() }).select('+password').exec();
+    return this.userModel
+      .findOne({ email: email.toLowerCase() })
+      .select('+password')
+      .exec();
   }
 
   async update(id: string, dto: UpdateUserDto) {
-    const user = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+    const user = await this.userModel
+      .findByIdAndUpdate(id, dto, { new: true })
+      .exec();
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
@@ -46,5 +58,15 @@ export class UsersService {
     const user = await this.userModel.findByIdAndDelete(id).exec();
     if (!user) throw new NotFoundException('User not found');
     return { deleted: true };
+  }
+
+  async setRefreshToken(id: string, token: string | null) {
+    await this.userModel
+      .findByIdAndUpdate(id, { refreshTokenHash: token ? sha256(token) : null })
+      .exec();
+  }
+
+  findByIdWithRefresh(id: string) {
+    return this.userModel.findById(id).select('+refreshTokenHash').exec();
   }
 }

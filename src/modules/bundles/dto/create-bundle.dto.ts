@@ -1,45 +1,73 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize, IsArray, IsEnum, IsNumber, IsOptional, IsString,
-  IsUrl, Matches, Max, Min, MinLength, ValidateIf, ValidateNested,
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  Max,
+  Min,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { Status } from '../../../common/enums/status.enum.js';
-import { PricingType } from '../schemas/bundle.schema.js';
+import { DiscountType, PricingType } from '../schemas/bundle.schema.js';
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-const HEX_MSG = { message: 'Must be a HEX code, e.g. #000000' };
 
-export class CreateBundleTemplateDto {
-  @IsString() @MinLength(2) title: string;
-  @IsString() @MinLength(2) shortDescription: string;
+export class BundleTemplateDto {
+  @IsString() @IsNotEmpty() title: string;
+  @IsString() @IsNotEmpty() shortDescription: string;
   @IsOptional() @IsString() backgroundImage?: string;
-  @IsString() iconFamily: string;
-  @IsString() appIcon: string;
+  @IsString() @IsNotEmpty() iconFamily: string;
+  @IsString() @IsNotEmpty() appIcon: string;
   @IsOptional() @IsString() webIcon?: string;
-  @IsOptional() @Matches(HEX, HEX_MSG) cardBackgroundColor?: string;
-  @IsOptional() @Matches(HEX, HEX_MSG) iconBackground?: string;
+  @IsOptional() @Matches(HEX, { message: 'must be a hex color' }) cardBackgroundColor?: string;
+  @IsOptional() @Matches(HEX, { message: 'must be a hex color' }) iconBackground?: string;
 }
 
 export class CreateBundleDto {
-  @IsString() @MinLength(2) name: string;
-  @IsString() @MinLength(2) shortCode: string;
-  @IsString() iconFamily: string;
-  @IsString() appIcon: string;
+  // 1. Basic info
+  @IsString() @IsNotEmpty() name: string;
+  @IsString() @IsNotEmpty() shortCode: string;
+  @IsString() @IsNotEmpty() iconFamily: string;
+  @IsString() @IsNotEmpty() appIcon: string;
   @IsOptional() @IsString() webIcon?: string;
-  @IsOptional() @Matches(HEX, HEX_MSG) backgroundColor?: string;
+  @IsOptional() @Matches(HEX, { message: 'must be a hex color' }) backgroundColor?: string;
   @IsEnum(PricingType) pricingType: PricingType;
-  @IsEnum(Status) status: Status;
+  @IsOptional() @IsEnum(Status) status?: Status;
 
+  // pricing (add-on only)
   @ValidateIf((o) => o.pricingType === PricingType.AddOn)
-  @IsNumber() @Min(0)
+  @IsNumber()
+  @Min(0)
   price?: number;
 
-  @IsOptional() @IsNumber() @Min(0) @Max(100)
-  discount?: number;
+  @IsOptional() @IsBoolean() hasDiscount?: boolean;
 
-  @IsString() @MinLength(1) longDescription: string;
+  @ValidateIf((o) => o.hasDiscount === true)
+  @IsEnum(DiscountType)
+  discountType?: DiscountType;
 
-  @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true })
+  @ValidateIf((o) => o.hasDiscount === true)
+  @IsNumber()
+  @Min(0)
+  @ValidateIf((o) => o.hasDiscount === true && o.discountType === DiscountType.Percentage)
+  @Max(100)
+  discountValue?: number;
+
+  // 2. Client-facing content
+  @IsString() @IsNotEmpty() longDescription: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
   benefits?: string[];
 
   @IsOptional() @IsString() supportPhone?: string;
@@ -51,7 +79,8 @@ export class CreateBundleDto {
   @IsOptional() @IsString() additionalInformation?: string;
   @IsOptional() @IsString() insuranceInstructions?: string;
 
+  // 3. Template
   @ValidateNested()
-  @Type(() => CreateBundleTemplateDto)
-  template: CreateBundleTemplateDto;
+  @Type(() => BundleTemplateDto)
+  template: BundleTemplateDto;
 }

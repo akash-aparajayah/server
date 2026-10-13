@@ -1,42 +1,61 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service.js';
 import { CreateCategoryDto } from './dto/create-category.dto.js';
 import { UpdateCategoryDto } from './dto/update-category.dto.js';
-import { CategoryQueryDto } from './dto/category-query.dto.js';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { Role } from '../../common/enums/role.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly service: CategoriesService) {}
+  constructor(private readonly categoriesService: CategoriesService) {}
 
-  @Post()
-  create(@CurrentUser() user: { userId: string }, @Body() dto: CreateCategoryDto) {
-    return this.service.create(user.userId, dto);
+  @Roles(Role.ADMIN)
+  @Post('create-categories')
+  create(@Body() dto: CreateCategoryDto, @CurrentUser() user: any) {
+    return this.categoriesService.create(dto, user.sub);
   }
 
-  @Get()
-  findAll(@Query() query: CategoryQueryDto) {
-    return this.service.findAll(query);
+  // logged-in users: only active categories
+  @Get('get-all-categories')
+  findAll() {
+    return this.categoriesService.findAll(true);
   }
 
-  @Get(':id')
+  // must be above ':id', otherwise "admin" is treated as an id
+  @Roles(Role.ADMIN)
+  @Get('admin/all')
+  findAllAdmin() {
+    return this.categoriesService.findAll();
+  }
+
+  @Get(':id/get-categories')
   findOne(@Param('id', ParseObjectIdPipe) id: string) {
-    return this.service.findOne(id);
+    return this.categoriesService.findOne(id);
   }
 
-  @Patch(':id')
+  @Roles(Role.ADMIN)
+  @Patch(':id/update-categories')
   update(
     @Param('id', ParseObjectIdPipe) id: string,
-    @CurrentUser() user: { userId: string },
     @Body() dto: UpdateCategoryDto,
+    @CurrentUser() user: any,
   ) {
-    return this.service.update(id, user.userId, dto);
+    return this.categoriesService.update(id, dto, user.sub);
+  }
+
+  @Roles(Role.ADMIN)
+  @Delete(':id/remove-categories')
+  remove(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.categoriesService.remove(id);
   }
 }

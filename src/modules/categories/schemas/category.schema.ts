@@ -9,16 +9,19 @@ export class Category {
   @Prop({ required: true, unique: true, trim: true })
   name: string;
 
+  @Prop({ required: true, unique: true, lowercase: true, trim: true })
+  slug: string;
+
   @Prop({ trim: true })
-  backgroundColor?: string;
+  description?: string;
 
   @Prop({ type: String, enum: Status, default: Status.Active })
   status: Status;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   updatedBy: Types.ObjectId;
 }
 

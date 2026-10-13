@@ -1,38 +1,39 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiKeysService } from './api-keys.service.js';
 import { CreateApiKeyDto } from './dto/create-api-key.dto.js';
-import { RegenerateApiKeyDto } from './dto/regenerate-api-key.dto.js';
-import { ApiKeyQueryDto } from './dto/api-key-query.dto.js';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../../common/guards/roles.guard.js';
-import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
-import { Role } from '../../common/enums/role.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
-@Controller('api-keys')
+@Controller()
 export class ApiKeysController {
-  constructor(private readonly service: ApiKeysService) {}
+  constructor(private readonly apiKeysService: ApiKeysService) {}
 
-  @Post()
-  create(@CurrentUser() user: { userId: string }, @Body() dto: CreateApiKeyDto) {
-    return this.service.create(user.userId, dto);
+  // "Create token" button
+  @Post('instances/:instanceId/api-keys')
+  create(
+    @Param('instanceId', ParseObjectIdPipe) instanceId: string,
+    @Body() dto: CreateApiKeyDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.apiKeysService.create(instanceId, dto, {
+      sub: user.sub,
+      role: user.role,
+    });
   }
 
-  @Get()
-  findAll(@Query() query: ApiKeyQueryDto) {
-    return this.service.findAll(query.projectId);
+  @Get('instances/:instanceId/api-keys')
+  findByInstance(
+    @Param('instanceId', ParseObjectIdPipe) instanceId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.apiKeysService.findByInstance(instanceId, {
+      sub: user.sub,
+      role: user.role,
+    });
   }
 
-  @Patch(':id/regenerate')
-  regenerate(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: RegenerateApiKeyDto) {
-    return this.service.regenerate(id, dto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id', ParseObjectIdPipe) id: string) {
-    return this.service.remove(id);
+  @Delete('api-keys/:id')
+  revoke(@Param('id', ParseObjectIdPipe) id: string, @CurrentUser() user: any) {
+    return this.apiKeysService.revoke(id, { sub: user.sub, role: user.role });
   }
 }

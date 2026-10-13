@@ -1,60 +1,65 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Category, CategoryDocument } from './schemas/category.schema.js';
 import { CreateCategoryDto } from './dto/create-category.dto.js';
 import { UpdateCategoryDto } from './dto/update-category.dto.js';
-import { CategoryQueryDto } from './dto/category-query.dto.js';
-
-const SORTABLE = ['name', 'status', 'createdAt', 'updatedAt'];
+import { Status } from '../../common/enums/status.enum.js';
 
 @Injectable()
 export class CategoriesService {
-  constructor(@InjectModel(Category.name) private model: Model<CategoryDocument>) {}
+  constructor(
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+  ) {}
 
-  async create(userId: string, dto: CreateCategoryDto) {
+  async create(dto: CreateCategoryDto, userId: string) {
     try {
-      return await this.model.create({ ...dto, createdBy: userId, updatedBy: userId });
+      return await this.categoryModel.create({
+        ...dto,
+        createdBy: userId,
+        updatedBy: userId,
+      });
     } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('Category name already exists');
+      if (e.code === 11000)
+        throw new ConflictException('Name or slug already exists');
       throw e;
     }
   }
 
-  async findAll(q: CategoryQueryDto) {
-    const filter: Record<string, any> = {};
-    if (q.search) filter.name = { $regex: q.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
-    if (q.status) filter.status = q.status;
-
-    const sortBy = SORTABLE.includes(q.sortBy) ? q.sortBy : 'createdAt';
-    const [data, total] = await Promise.all([
-      this.model
-        .find(filter)
-        .sort({ [sortBy]: q.order === 'asc' ? 1 : -1 })
-        .skip((q.page - 1) * q.limit)
-        .limit(q.limit)
-        .exec(),
-      this.model.countDocuments(filter),
-    ]);
-    return { data, total, page: q.page, limit: q.limit, totalPages: Math.ceil(total / q.limit) };
+  async findAll(onlyActive = false) {
+    return this.categoryModel
+      .find(onlyActive ? { status: Status.Active } : {})
+      .sort({ name: 1 })
+      .exec();
   }
 
   async findOne(id: string) {
-    const doc = await this.model.findById(id).exec();
-    if (!doc) throw new NotFoundException('Category not found');
-    return doc;
+    const category = await this.categoryModel.findById(id).exec();
+    if (!category) throw new NotFoundException('Category not found');
+    return category;
   }
 
-  async update(id: string, userId: string, dto: UpdateCategoryDto) {
+  async update(id: string, dto: UpdateCategoryDto, userId: string) {
     try {
-      const doc = await this.model
+      const category = await this.categoryModel
         .findByIdAndUpdate(id, { ...dto, updatedBy: userId }, { new: true })
         .exec();
-      if (!doc) throw new NotFoundException('Category not found');
-      return doc;
+      if (!category) throw new NotFoundException('Category not found');
+      return category;
     } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('Category name already exists');
+      if (e.code === 11000)
+        throw new ConflictException('Name or slug already exists');
       throw e;
     }
+  }
+
+  async remove(id: string) {
+    const category = await this.categoryModel.findByIdAndDelete(id).exec();
+    if (!category) throw new NotFoundException('Category not found');
+    return { deleted: true };
   }
 }

@@ -18,32 +18,30 @@ import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { Role } from '../../common/enums/role.enum.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
+@Roles(Role.ADMIN)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
-  }
-
-  @Get()
+  @Get('get-all-user')
   findAll() {
     return this.usersService.findAll();
   }
 
-  @Get(':id')
+  @Get(':id/get-user')
   findOne(@Param('id', ParseObjectIdPipe) id: string) {
     return this.usersService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateUserDto) {
+  @Patch(':id/update-user')
+  update(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: UpdateUserDto,
+  ) {
     return this.usersService.update(id, dto);
   }
 
-  @Delete(':id')
+  @Delete(':id/remove-user')
   remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.usersService.remove(id);
   }
