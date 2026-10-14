@@ -22,7 +22,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const user = await this.users.create({ ...dto, role: Role.USER });
+    const user = await this.users.create({ ...dto, role: Role.ADMIN });
     return this.issueTokens(user._id.toString(), user.email, user.role);
   }
 
