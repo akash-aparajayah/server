@@ -42,10 +42,20 @@ export class BundlesService {
     }
   }
 
-  //get all bundle
+  // Get all bundles with populated user details
   async findAll(onlyActive = false) {
     return this.bundleModel
       .find(onlyActive ? { status: true } : {})
+      .populate({
+        path: 'createdBy',
+        select: 'name',
+        model: 'User',
+      })
+      .populate({
+        path: 'updatedBy',
+        select: 'name',
+        model: 'User',
+      })
       .sort({ createdAt: -1 })
       .exec();
   }

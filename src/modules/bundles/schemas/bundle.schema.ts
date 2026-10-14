@@ -39,7 +39,7 @@ export class Bundle {
   @Prop() backgroundColor?: string;
   @Prop({ type: String, enum: PricingType, required: true })
   pricingType: PricingType;
-  @Prop({ type: String, default: true }) status: boolean;
+  @Prop({ default: true }) status: boolean;
 
   // pricing (add-on only)
   @Prop({ min: 0 }) price?: number;
