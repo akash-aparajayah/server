@@ -60,7 +60,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message,
       ...(errors && { errors }),
       ...extra,
-      path: req.url,
       timestamp: new Date().toISOString(),
     });
   }
