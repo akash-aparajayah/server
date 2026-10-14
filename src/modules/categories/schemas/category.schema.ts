@@ -18,8 +18,8 @@ export class Category {
   @Prop({ trim: true })
   description?: string;
 
-  @Prop({ type: String, enum: Status, default: Status.Active })
-  status: Status;
+  @Prop({ type: String,  default: true })
+  status: Boolean;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;

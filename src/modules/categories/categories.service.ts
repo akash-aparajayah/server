@@ -8,7 +8,6 @@ import { Model } from 'mongoose';
 import { Category, CategoryDocument } from './schemas/category.schema.js';
 import { CreateCategoryDto } from './dto/create-category.dto.js';
 import { UpdateCategoryDto } from './dto/update-category.dto.js';
-import { Status } from '../../common/enums/status.enum.js';
 
 @Injectable()
 export class CategoriesService {
@@ -32,7 +31,7 @@ export class CategoriesService {
 
   async findAll(onlyActive = false) {
     return this.categoryModel
-      .find(onlyActive ? { status: Status.Active } : {})
+      .find(onlyActive ? { status: true } : {})
       .sort({ name: 1 })
       .exec();
   }

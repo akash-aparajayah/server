@@ -20,6 +20,5 @@ export class CreateCategoryDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(Status)
-  status?: Status;
+  status?: Boolean;
 }
