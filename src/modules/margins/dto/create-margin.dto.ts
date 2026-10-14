@@ -19,4 +19,8 @@ export class CreateMarginDto {
   @IsNumber()
   @Min(0)
   markupValue: number;
+  
+  @IsNumber()
+  @Min(0)
+  marginVsRetail: number;
 }
