@@ -16,7 +16,7 @@ import {
 import { Status } from '../../../common/enums/status.enum.js';
 import { WeightType } from '../schemas/engine-config.schema.js';
 
-// "5995, 0742" -> ["5995", "0742"]  (array vandha apdiye)
+// "5995, 0742" -> ["5995", "0742"]  (arrays are passed through as-is)
 const toList = ({ value }: { value: unknown }) =>
   typeof value === 'string'
     ? value
@@ -72,7 +72,13 @@ export class SignalDto {
   match?: SignalMatchDto;
 
   @IsEnum(WeightType) weightType: WeightType;
+
   @IsOptional() @IsNumber() weightValue?: number;
+  @IsOptional() @IsNumber() cap?: number;
+  @IsOptional() @IsNumber() divisor?: number;
+  @IsOptional() @IsNumber() multiplier?: number;
+  @IsOptional() @IsNumber() reference?: number;
+  @IsOptional() @IsNumber() trigger?: number;
 }
 
 export class ThresholdsDto {

@@ -6,7 +6,10 @@ export type EngineConfigDocument = HydratedDocument<EngineConfig>;
 
 export enum WeightType {
   Flat = 'flat',
-  Percentage = 'percentage',
+  Saturating = 'saturating',
+  Ratio = 'ratio',
+  Balance = 'balance',
+  Percentage = 'percentage', // legacy, only for old data
 }
 
 @Schema({ _id: false })
@@ -27,9 +30,15 @@ export class Signal {
   @Prop({ type: String, trim: true }) label?: string;
   @Prop({ type: Number, min: 0 }) minCount?: number;
   @Prop({ type: SignalMatchSchema, default: () => ({}) }) match: SignalMatch;
+
   @Prop({ type: String, enum: WeightType, required: true })
   weightType: WeightType;
   @Prop({ type: Number }) weightValue?: number;
+  @Prop({ type: Number }) cap?: number;
+  @Prop({ type: Number }) divisor?: number;
+  @Prop({ type: Number }) multiplier?: number;
+  @Prop({ type: Number }) reference?: number;
+  @Prop({ type: Number }) trigger?: number;
 }
 export const SignalSchema = SchemaFactory.createForClass(Signal);
 

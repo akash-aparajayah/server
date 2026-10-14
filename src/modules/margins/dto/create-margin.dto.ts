@@ -6,7 +6,7 @@ export class CreateMarginDto {
   product: string;
 
   @IsNumber()
-  @Min(0.01) // 0 irundha percent calc la divide-by-zero
+  @Min(0.01) 
   wholesalePrice: number;
 
   @IsNumber()

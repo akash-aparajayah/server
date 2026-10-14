@@ -37,10 +37,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         } else {
           message = m ?? exception.message;
         }
-        extra = rest; // e.g. publish la "missing": [...]
+        extra = rest; // e.g. publish "missing": [...]
       }
     } else if (exception?.code === 11000) {
-      status = HttpStatus.CONFLICT; // Mongo duplicate key (service la catch pannala na)
+      status = HttpStatus.CONFLICT; // Mongo duplicate key 
       message = 'Duplicate value';
     } else if (exception?.name === 'CastError') {
       status = HttpStatus.BAD_REQUEST;
@@ -50,7 +50,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message = 'Validation failed';
       errors = Object.values(exception.errors ?? {}).map((e: any) => e.message);
     } else {
-      // unknown error: details client ku anuppa koodathu, log mattum
+      // unknown error: details 
       this.logger.error(exception?.message ?? exception, exception?.stack);
     }
 
