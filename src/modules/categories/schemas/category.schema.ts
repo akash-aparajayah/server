@@ -13,6 +13,9 @@ export class Category {
   slug: string;
 
   @Prop({ trim: true })
+  backgroundColor?: string;
+
+  @Prop({ trim: true })
   description?: string;
 
   @Prop({ type: String, enum: Status, default: Status.Active })

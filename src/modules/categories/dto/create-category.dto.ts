@@ -12,6 +12,10 @@ export class CreateCategoryDto {
   slug: string;
 
   @IsOptional()
+  @Matches(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, { message: 'backgroundColor must be a HEX code, e.g. #000000' })
+  backgroundColor?: string;
+
+  @IsOptional()
   @IsString()
   description?: string;
 
