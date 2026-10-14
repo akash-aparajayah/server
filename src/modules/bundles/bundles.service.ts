@@ -10,6 +10,7 @@ import sanitizeHtml from 'sanitize-html';
 import { Bundle, BundleDocument } from './schemas/bundle.schema.js';
 import { CreateBundleDto } from './dto/create-bundle.dto.js';
 import { UpdateBundleDto } from './dto/update-bundle.dto.js';
+import { sanitizeRichText } from '../../common/utils/sanitize.util.js';
 
 @Injectable()
 export class BundlesService {
@@ -18,21 +19,7 @@ export class BundlesService {
     private readonly bundleModel: Model<BundleDocument>,
   ) {}
 
-  private clean(html: string): string {
-    return sanitizeHtml(html, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-        'h1',
-        'h2',
-        'img',
-        'u',
-      ]),
-      allowedAttributes: {
-        ...sanitizeHtml.defaults.allowedAttributes,
-        '*': ['style'],
-      },
-    });
-  }
-
+  //create bundle
   async create(dto: CreateBundleDto, userId: string) {
     try {
       if (!Types.ObjectId.isValid(userId)) {
@@ -41,7 +28,7 @@ export class BundlesService {
 
       const bundle = new this.bundleModel({
         ...dto,
-        longDescription: this.clean(dto.longDescription),
+        longDescription: sanitizeRichText(dto.longDescription),
         createdBy: new Types.ObjectId(userId),
         updatedBy: new Types.ObjectId(userId),
       });
@@ -55,6 +42,7 @@ export class BundlesService {
     }
   }
 
+  //get all bundle
   async findAll(onlyActive = false) {
     return this.bundleModel
       .find(onlyActive ? { status: true } : {})
@@ -62,6 +50,7 @@ export class BundlesService {
       .exec();
   }
 
+  //get one bundle
   async findOne(id: string) {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Bundle not found');
@@ -76,6 +65,7 @@ export class BundlesService {
     return bundle;
   }
 
+  //update bundle
   async update(id: string, dto: UpdateBundleDto, userId: string) {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Bundle not found');
@@ -91,7 +81,7 @@ export class BundlesService {
     };
 
     if (dto.longDescription !== undefined) {
-      data.longDescription = this.clean(dto.longDescription);
+      data.longDescription = sanitizeRichText(dto.longDescription);
     }
 
     try {
@@ -115,6 +105,7 @@ export class BundlesService {
     }
   }
 
+  //delete bundle
   async remove(id: string) {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Bundle not found');
