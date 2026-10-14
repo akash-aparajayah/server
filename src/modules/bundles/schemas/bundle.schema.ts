@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { Status } from '../../../common/enums/status.enum.js';
 
 export type BundleDocument = HydratedDocument<Bundle>;
 
@@ -25,19 +24,22 @@ export class BundleTemplate {
   @Prop() cardBackgroundColor?: string;
   @Prop() iconBackground?: string;
 }
-export const BundleTemplateSchema = SchemaFactory.createForClass(BundleTemplate);
+export const BundleTemplateSchema =
+  SchemaFactory.createForClass(BundleTemplate);
 
 @Schema({ timestamps: true })
 export class Bundle {
   // 1. Basic info
   @Prop({ required: true, trim: true }) name: string;
-  @Prop({ required: true, unique: true, trim: true, uppercase: true }) shortCode: string;
+  @Prop({ required: true, unique: true, trim: true, uppercase: true })
+  shortCode: string;
   @Prop({ required: true }) iconFamily: string;
   @Prop({ required: true }) appIcon: string;
   @Prop() webIcon?: string;
   @Prop() backgroundColor?: string;
-  @Prop({ type: String, enum: PricingType, required: true }) pricingType: PricingType;
-  @Prop({ type: String, enum: Status, default: Status.Active }) status: Status;
+  @Prop({ type: String, enum: PricingType, required: true })
+  pricingType: PricingType;
+  @Prop({ type: String, default: true }) status: boolean;
 
   // pricing (add-on only)
   @Prop({ min: 0 }) price?: number;
@@ -58,10 +60,13 @@ export class Bundle {
   @Prop() insuranceInstructions?: string;
 
   // 3. Template
-  @Prop({ type: BundleTemplateSchema, required: true }) template: BundleTemplate;
+  @Prop({ type: BundleTemplateSchema, required: true })
+  template: BundleTemplate;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true }) createdBy: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true }) updatedBy: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  createdBy: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  updatedBy: Types.ObjectId;
 }
 
 export const BundleSchema = SchemaFactory.createForClass(Bundle);

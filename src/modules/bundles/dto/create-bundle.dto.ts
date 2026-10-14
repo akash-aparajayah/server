@@ -15,7 +15,6 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { Status } from '../../../common/enums/status.enum.js';
 import { DiscountType, PricingType } from '../schemas/bundle.schema.js';
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -27,8 +26,12 @@ export class BundleTemplateDto {
   @IsString() @IsNotEmpty() iconFamily: string;
   @IsString() @IsNotEmpty() appIcon: string;
   @IsOptional() @IsString() webIcon?: string;
-  @IsOptional() @Matches(HEX, { message: 'must be a hex color' }) cardBackgroundColor?: string;
-  @IsOptional() @Matches(HEX, { message: 'must be a hex color' }) iconBackground?: string;
+  @IsOptional()
+  @Matches(HEX, { message: 'must be a hex color' })
+  cardBackgroundColor?: string;
+  @IsOptional()
+  @Matches(HEX, { message: 'must be a hex color' })
+  iconBackground?: string;
 }
 
 export class CreateBundleDto {
@@ -38,9 +41,11 @@ export class CreateBundleDto {
   @IsString() @IsNotEmpty() iconFamily: string;
   @IsString() @IsNotEmpty() appIcon: string;
   @IsOptional() @IsString() webIcon?: string;
-  @IsOptional() @Matches(HEX, { message: 'must be a hex color' }) backgroundColor?: string;
+  @IsOptional()
+  @Matches(HEX, { message: 'must be a hex color' })
+  backgroundColor?: string;
   @IsEnum(PricingType) pricingType: PricingType;
-  @IsOptional() @IsEnum(Status) status?: Status;
+  @IsOptional() status?: Boolean;
 
   // pricing (add-on only)
   @ValidateIf((o) => o.pricingType === PricingType.AddOn)
@@ -57,7 +62,9 @@ export class CreateBundleDto {
   @ValidateIf((o) => o.hasDiscount === true)
   @IsNumber()
   @Min(0)
-  @ValidateIf((o) => o.hasDiscount === true && o.discountType === DiscountType.Percentage)
+  @ValidateIf(
+    (o) => o.hasDiscount === true && o.discountType === DiscountType.Percentage,
+  )
   @Max(100)
   discountValue?: number;
 
