@@ -1,10 +1,20 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ProductsService } from './products.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { QueryProductDto } from './dto/query-product.dto.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { Role } from '../../common/enums/role.enum.js';
 
@@ -14,23 +24,27 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   // "Save Draft" / step 1 Next
-  @Post()
+  @ResponseMessage('Product draft created successfully')
+  @Post('create-product')
   create(@Body() dto: CreateProductDto, @CurrentUser() user: any) {
     return this.productsService.create(dto, user.sub);
   }
 
-  @Get()
+  @ResponseMessage('Products fetched successfully')
+  @Get('get-all-products')
   findAll(@Query() query: QueryProductDto) {
     return this.productsService.findAll(query);
   }
 
-  @Get(':id')
+  @ResponseMessage('Product fetched successfully')
+  @Get(':id/get-product')
   findOne(@Param('id', ParseObjectIdPipe) id: string) {
     return this.productsService.findOne(id);
   }
 
   // every step Next / Save Draft
-  @Patch(':id')
+  @ResponseMessage('Product updated successfully')
+  @Patch(':id/update-product')
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateProductDto,
@@ -40,12 +54,17 @@ export class ProductsController {
   }
 
   // "Publish" button
-  @Post(':id/publish')
-  publish(@Param('id', ParseObjectIdPipe) id: string, @CurrentUser() user: any) {
+  @ResponseMessage('Product published successfully')
+  @Post(':id/publish-product')
+  publish(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @CurrentUser() user: any,
+  ) {
     return this.productsService.publish(id, user.sub);
   }
 
-  @Delete(':id')
+  @ResponseMessage('Product deleted successfully')
+  @Delete(':id/remove-product')
   remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.productsService.remove(id);
   }

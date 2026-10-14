@@ -11,22 +11,26 @@ import { InstancesService } from './instances.service.js';
 import { CreateInstanceDto } from './dto/create-instance.dto.js';
 import { UpdateInstanceDto } from './dto/update-instance.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 
 @Controller('instances')
 export class InstancesController {
   constructor(private readonly instancesService: InstancesService) {}
 
+  @ResponseMessage('Instance created successfully')
   @Post('create-instance')
   create(@Body() dto: CreateInstanceDto, @CurrentUser() user: any) {
     return this.instancesService.create(dto, user.sub);
   }
 
+  @ResponseMessage('Instances fetched successfully')
   @Get('get-all-instance')
   findAll(@CurrentUser() user: any) {
     return this.instancesService.findAll(user);
   }
 
+  @ResponseMessage('Instance fetched successfully')
   @Get(':id/get-instance')
   findOne(
     @Param('id', ParseObjectIdPipe) id: string,
@@ -35,6 +39,7 @@ export class InstancesController {
     return this.instancesService.findOne(id, user);
   }
 
+  @ResponseMessage('Instance updated successfully')
   @Patch(':id/update-instance')
   update(
     @Param('id', ParseObjectIdPipe) id: string,
@@ -44,6 +49,7 @@ export class InstancesController {
     return this.instancesService.update(id, dto, user);
   }
 
+  @ResponseMessage('Instance deleted successfully')
   @Delete(':id/remove-instance')
   remove(@Param('id', ParseObjectIdPipe) id: string, @CurrentUser() user: any) {
     return this.instancesService.remove(id, user);
