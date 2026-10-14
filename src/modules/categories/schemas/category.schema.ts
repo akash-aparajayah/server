@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { Status } from '../../../common/enums/status.enum.js';
 
 export type CategoryDocument = HydratedDocument<Category>;
 
@@ -18,13 +17,21 @@ export class Category {
   @Prop({ trim: true })
   description?: string;
 
-  @Prop({ type: String,  default: true })
-  status: Boolean;
+  @Prop({ type: Boolean, default: true })
+  status: boolean;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   updatedBy: Types.ObjectId;
 }
 
