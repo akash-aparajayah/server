@@ -90,7 +90,7 @@ export class CategoriesService {
             updatedBy: new Types.ObjectId(userId),
           },
           {
-            new: true,
+            returnDocument: 'after',
             runValidators: true,
           },
         )

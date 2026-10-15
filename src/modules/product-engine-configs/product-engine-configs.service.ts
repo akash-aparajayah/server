@@ -155,7 +155,7 @@ export class ProductEngineConfigsService {
         .findByIdAndUpdate(
           id,
           { ...dto, updatedBy: userId },
-          { new: true, runValidators: true },
+          { returnDocument: 'after', runValidators: true },
         )
         .exec();
       if (!config)

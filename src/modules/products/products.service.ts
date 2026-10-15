@@ -151,7 +151,7 @@ export class ProductsService {
 
     try {
       const product = await this.productModel
-        .findByIdAndUpdate(id, { $set: set }, { new: true, runValidators: true })
+        .findByIdAndUpdate(id, { $set: set }, { returnDocument: 'after', runValidators: true })
         .exec();
       return product;
     } catch (e: any) {

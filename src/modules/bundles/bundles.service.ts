@@ -97,7 +97,7 @@ export class BundlesService {
     try {
       const bundle = await this.bundleModel
         .findByIdAndUpdate(id, data, {
-          new: true,
+          returnDocument: 'after',
           runValidators: true,
         })
         .exec();
