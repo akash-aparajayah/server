@@ -2,10 +2,10 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { Status } from '../../../common/enums/status.enum.js';
 
-export type InstanceDocument = HydratedDocument<Instance>;
+export type EntityDocument = HydratedDocument<Entity>;
 
 @Schema({ timestamps: true })
-export class Instance {
+export class Entity {
   @Prop({ required: true, trim: true })
   name: string;
 
@@ -24,11 +24,9 @@ export class Instance {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   updatedBy: Types.ObjectId;
-
-  
 }
 
-export const InstanceSchema = SchemaFactory.createForClass(Instance);
+export const EntitySchema = SchemaFactory.createForClass(Entity);
 
-// same user ku same name 2 instance vendaam
-InstanceSchema.index({ createdBy: 1, name: 1 }, { unique: true });
+// same user ku same name 2 entity vendaam
+EntitySchema.index({ createdBy: 1, name: 1 }, { unique: true });

@@ -4,15 +4,17 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import databaseConfig from './config/database.config.js';
 
 import { UsersModule } from './modules/users/users.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CategoriesModule } from './modules/categories/categories.module.js';
 import { BundlesModule } from './modules/bundles/bundles.module.js';
+import { EntitiesModule } from './modules/entities/entities.module.js';
+import { SubEntitiesModule } from './modules/sub-entities/sub-entities.module.js';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module.js';
-import { MarginsModule } from './modules/margins/margins.module.js';
-import databaseConfig from './config/database.config.js';
 import { ProductsModule } from './modules/products/products.module.js';
+import { MarginsModule } from './modules/margins/margins.module.js';
 import { ProductEngineConfigsModule } from './modules/product-engine-configs/product-engine-configs.module.js';
 
 @Module({
@@ -33,10 +35,12 @@ import { ProductEngineConfigsModule } from './modules/product-engine-configs/pro
     AuthModule,
     CategoriesModule,
     BundlesModule,
+    EntitiesModule,
+    SubEntitiesModule,
     ApiKeysModule,
-    MarginsModule,
     ProductsModule,
-    ProductEngineConfigsModule
+    MarginsModule,
+    ProductEngineConfigsModule,
   ],
 
   controllers: [AppController],

@@ -1,14 +1,7 @@
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 import { Status } from '../../../common/enums/status.enum.js';
 
-export class CreateInstanceDto {
+export class CreateSubEntityDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
