@@ -108,7 +108,7 @@ export class ProductsService {
         .find(filter)
         .populate('category', 'name')
         .populate('bundled', 'name shortCode')
-        .populate('EngineConfig', 'name')
+        .populate('engineconfig', 'name')
         .populate('createdBy', 'name')
         .populate('updatedBy', 'name')
         .sort({ createdAt: -1 })
