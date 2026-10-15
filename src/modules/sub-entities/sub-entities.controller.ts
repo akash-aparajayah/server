@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { SubEntitiesService } from './sub-entities.service.js';
 import { CreateSubEntityDto } from './dto/create-sub-entity.dto.js';
 import { UpdateSubEntityDto } from './dto/update-sub-entity.dto.js';
@@ -18,7 +26,10 @@ export class SubEntitiesController {
     @Body() dto: CreateSubEntityDto,
     @CurrentUser() user: any,
   ) {
-    return this.subEntitiesService.create(entityId, dto, { sub: user.sub, role: user.role });
+    return this.subEntitiesService.create(entityId, dto, {
+      sub: user.sub,
+      role: user.role,
+    });
   }
 
   // :entityId = parent entity id
@@ -28,14 +39,23 @@ export class SubEntitiesController {
     @Param('entityId', ParseObjectIdPipe) entityId: string,
     @CurrentUser() user: any,
   ) {
-    return this.subEntitiesService.findAllByEntity(entityId, { sub: user.sub, role: user.role });
+    return this.subEntitiesService.findAllByEntity(entityId, {
+      sub: user.sub,
+      role: user.role,
+    });
   }
 
   // :id = sub entity id
   @ResponseMessage('Sub entity fetched successfully')
   @Get(':id/get-sub-entity')
-  findOne(@Param('id', ParseObjectIdPipe) id: string, @CurrentUser() user: any) {
-    return this.subEntitiesService.findOne(id, { sub: user.sub, role: user.role });
+  findOne(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.subEntitiesService.findOne(id, {
+      sub: user.sub,
+      role: user.role,
+    });
   }
 
   @ResponseMessage('Sub entity updated successfully')
@@ -45,12 +65,18 @@ export class SubEntitiesController {
     @Body() dto: UpdateSubEntityDto,
     @CurrentUser() user: any,
   ) {
-    return this.subEntitiesService.update(id, dto, { sub: user.sub, role: user.role });
+    return this.subEntitiesService.update(id, dto, {
+      sub: user.sub,
+      role: user.role,
+    });
   }
 
   @ResponseMessage('Sub entity deleted successfully')
   @Delete(':id/remove-sub-entity')
   remove(@Param('id', ParseObjectIdPipe) id: string, @CurrentUser() user: any) {
-    return this.subEntitiesService.remove(id, { sub: user.sub, role: user.role });
+    return this.subEntitiesService.remove(id, {
+      sub: user.sub,
+      role: user.role,
+    });
   }
 }
