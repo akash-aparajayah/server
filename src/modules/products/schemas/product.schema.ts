@@ -88,6 +88,8 @@ export class Product {
   // Step 4: Audience
   @Prop({ type: String, enum: AudienceType, default: AudienceType.Everyone })
   audienceType: AudienceType;
+  @Prop({ type: Types.ObjectId, ref: 'EngineConfig', required: true, index: true })
+  configurationId: Types.ObjectId;
 
   // Step 5: Placement
   @Prop({ type: [String], enum: Placement, default: [] })

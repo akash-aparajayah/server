@@ -71,6 +71,7 @@ export class CreateProductDto {
   bundled?: string[];
 
   @IsOptional() @IsEnum(AudienceType) audienceType?: AudienceType;
+  @IsOptional() @IsMongoId() configurationId: string;
 
   @IsOptional()
   @IsArray()
