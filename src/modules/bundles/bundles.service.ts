@@ -117,17 +117,18 @@ export class BundlesService {
     const [data, total] = await Promise.all([
       this.bundleModel
         .find(filter)
-        .populate({
-          path: 'createdBy',
-          select: 'name',
-          model: 'User',
-        })
-        .populate({
-          path: 'updatedBy',
-          select: 'name',
-          model: 'User',
-        })
-        .sort({ _id: 1 })
+        // .populate({
+        //   path: 'createdBy',
+        //   select: 'name',
+        //   model: 'User',
+        // })
+        // .populate({
+        //   path: 'updatedBy',
+        //   select: 'name',
+        //   model: 'User',
+        // })
+        .select('_id name ppricingType price discountValue sellingPrice status createdAt')
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),

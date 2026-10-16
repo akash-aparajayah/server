@@ -125,8 +125,8 @@ export class CategoriesService {
     const [data, total] = await Promise.all([
       this.categoryModel
         .find(filter)
-        .select('name description status backgroundColor')
-        .sort({ _id: 1 })
+        .select('name description status backgroundColor createdAt')
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean()

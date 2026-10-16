@@ -218,8 +218,10 @@ export class ProductEngineConfigsService {
     const [data, total] = await Promise.all([
       this.model
         .find(filter)
-        .select('-signals')
-        .sort({ _id: 1 })
+        .select(
+          '_id name providerId offerType category baseScore status createdAt',
+        )
+        .sort({ _createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),
