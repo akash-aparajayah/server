@@ -81,40 +81,61 @@ export class CategoriesService {
     }
   }
 
-  // Get active categories with pagination
+  // Get active categories with pagination and search
   async findAllCategories(
     page: number = 1,
     limit: number = 10,
+    search?: string,
   ): Promise<PaginatedCategoriesResponse> {
-    // Apply safe defaults to invalid pagination values
+    // Validate pagination values
     page = Number.isInteger(page) && page > 0 ? page : 1;
-
     limit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 10;
 
-    // Calculate how many records to skip
+    // Escape special regex characters to make search safe
+    const searchTerm = search?.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Build the filter for active categories
+    const filter: Record<string, any> = {
+      status: true,
+    };
+
+    // Search name, backgroundColor, and description
+    if (searchTerm) {
+      filter.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        {
+          backgroundColor: {
+            $regex: searchTerm,
+            $options: 'i',
+          },
+        },
+        {
+          description: {
+            $regex: searchTerm,
+            $options: 'i',
+          },
+        },
+      ];
+    }
+
+    // Calculate pagination offset
     const skip = (page - 1) * limit;
 
-    // Fetch the current page and total count concurrently
+    // Fetch matching categories and count concurrently
     const [data, total] = await Promise.all([
       this.categoryModel
-        .find({ status: true })
-        // Return only the required category fields
+        .find(filter)
         .select('name description status backgroundColor')
-        // Sort consistently between pages
         .sort({ _id: 1 })
-        // Skip records from previous pages
         .skip(skip)
-        // Limit the number of records
         .limit(limit)
-        // Return plain objects because this is a read-only list
         .lean()
         .exec(),
 
-      // Count only active categories
-      this.categoryModel.countDocuments({ status: true }).exec(),
+      this.categoryModel.countDocuments(filter).exec(),
     ]);
 
-    // Return the records and pagination metadata
+    // Return matching records and pagination metadata
     return {
       data,
       total,

@@ -40,7 +40,7 @@ export class CategoriesController {
     return this.categoriesService.create(dto, user.sub);
   }
 
-  // Get active categories with pagination
+  // Get active categories with pagination and search
   @ResponseMessage('Categories fetched successfully')
   @Get('get-all-categories')
   findAll(
@@ -49,8 +49,11 @@ export class CategoriesController {
 
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe)
     limit: number,
+
+    @Query('search')
+    search?: string,
   ): Promise<PaginatedCategoriesResponse> {
-    return this.categoriesService.findAllCategories(page, limit);
+    return this.categoriesService.findAllCategories(page, limit, search);
   }
 
   // Get one active category by ID
