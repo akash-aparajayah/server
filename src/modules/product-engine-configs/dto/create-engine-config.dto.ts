@@ -2,6 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -13,7 +14,6 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Status } from '../../../common/enums/status.enum.js';
 import { WeightType } from '../schemas/engine-config.schema.js';
 
 // "5995, 0742" -> ["5995", "0742"]  (arrays are passed through as-is)
@@ -105,5 +105,5 @@ export class CreateEngineConfigDto {
   @Type(() => SignalDto)
   signals?: SignalDto[];
 
-  @IsOptional() @IsEnum(Status) status?: Status;
+  @IsOptional() @IsBoolean() status?: Boolean;
 }

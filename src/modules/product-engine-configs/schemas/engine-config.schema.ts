@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { Status } from '../../../common/enums/status.enum.js';
 
 export type EngineConfigDocument = HydratedDocument<EngineConfig>;
 
@@ -73,8 +72,8 @@ export class EngineConfig {
   @Prop({ type: [SignalSchema], default: [] })
   signals: Signal[];
 
-  @Prop({ type: String, enum: Status, default: Status.Active, index: true })
-  status: Status;
+  @Prop({ type: Boolean, default: true, index: true })
+  status: Boolean;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;

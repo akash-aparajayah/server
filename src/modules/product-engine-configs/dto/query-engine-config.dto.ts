@@ -1,13 +1,20 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { Status } from '../../../common/enums/status.enum.js';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class QueryEngineConfigDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit: number =
     10;
   @IsOptional() @IsString() search?: string;
-  @IsOptional() @IsEnum(Status) status?: Status;
+  @IsOptional() @IsBoolean() status?: Boolean;
   @IsOptional() @IsString() providerId?: string;
   @IsOptional() @IsString() offerType?: string;
 }
