@@ -3,14 +3,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import sanitizeHtml from 'sanitize-html';
 
 import { Bundle, BundleDocument } from './schemas/bundle.schema.js';
+
 import { CreateBundleDto } from './dto/create-bundle.dto.js';
 import { UpdateBundleDto } from './dto/update-bundle.dto.js';
 import { sanitizeRichText } from '../../common/utils/sanitize.util.js';
+
+// Response type for the paginated bundle list.
+export interface PaginatedBundlesResponse {
+  data: BundleDocument[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 @Injectable()
 export class BundlesService {
@@ -19,13 +29,37 @@ export class BundlesService {
     private readonly bundleModel: Model<BundleDocument>,
   ) {}
 
-  //create bundle
-  async create(dto: CreateBundleDto, userId: string) {
-    try {
-      if (!Types.ObjectId.isValid(userId)) {
-        throw new NotFoundException('Invalid user ID');
-      }
+  // ---------- Helpers ----------
 
+  // Validate an ObjectId before using it in database operations.
+  private validateObjectId(id: string, message = 'Bundle not found'): void {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException(message);
+    }
+  }
+
+  // Convert duplicate-key errors into a clear API response.
+  private handleDuplicateError(error: unknown): never {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 11000
+    ) {
+      throw new ConflictException('Short code already exists');
+    }
+
+    throw error;
+  }
+
+  // ---------- Create ----------
+
+  // Create a bundle and store the creator/updater IDs.
+  // Sanitize rich-text content before saving it.
+  async create(dto: CreateBundleDto, userId: string): Promise<BundleDocument> {
+    this.validateObjectId(userId, 'Invalid user ID');
+
+    try {
       const bundle = new this.bundleModel({
         ...dto,
         longDescription: sanitizeRichText(dto.longDescription),
@@ -34,18 +68,93 @@ export class BundlesService {
       });
 
       return await bundle.save();
-    } catch (error: any) {
-      if (error.code === 11000) {
-        throw new ConflictException('Short code already exists');
-      }
-      throw error;
+    } catch (error: unknown) {
+      return this.handleDuplicateError(error);
     }
   }
 
-  // Get all bundles with populated user details
-  async findAll(onlyActive = false) {
-    return this.bundleModel
-      .find(onlyActive ? { status: true } : {})
+  // ---------- Find All: Pagination + Search ----------
+
+  // Return active bundles with pagination and optional text search.
+  // Search checks name, shortCode, and longDescription.
+  // Creator and updater details are populated for each result.
+  async findAll(
+    page = 1,
+    limit = 10,
+    search?: string,
+  ): Promise<PaginatedBundlesResponse> {
+    // Apply safe pagination defaults and a maximum page size.
+    page = Number.isInteger(page) && page > 0 ? page : 1;
+
+    limit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 10;
+
+    // Only include active bundles.
+    const filter: Record<string, any> = {
+      status: true,
+    };
+
+    // Escape regex characters so search input is treated literally.
+    const searchTerm = search?.trim();
+
+    if (searchTerm) {
+      const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      filter.$or = [
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { shortCode: { $regex: safeSearch, $options: 'i' } },
+        {
+          longDescription: {
+            $regex: safeSearch,
+            $options: 'i',
+          },
+        },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Fetch the requested page and total matching count concurrently.
+    const [data, total] = await Promise.all([
+      this.bundleModel
+        .find(filter)
+        .populate({
+          path: 'createdBy',
+          select: 'name',
+          model: 'User',
+        })
+        .populate({
+          path: 'updatedBy',
+          select: 'name',
+          model: 'User',
+        })
+        .sort({ _id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+
+      this.bundleModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // ---------- Find One ----------
+
+  // Return a single active bundle by ID.
+  async findOne(id: string): Promise<BundleDocument> {
+    this.validateObjectId(id);
+
+    const bundle = await this.bundleModel
+      .findOne({
+        _id: id,
+        status: true,
+      })
       .populate({
         path: 'createdBy',
         select: 'name',
@@ -56,17 +165,7 @@ export class BundlesService {
         select: 'name',
         model: 'User',
       })
-      .sort({ createdAt: -1 })
       .exec();
-  }
-
-  //get one bundle
-  async findOne(id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new NotFoundException('Bundle not found');
-    }
-
-    const bundle = await this.bundleModel.findById(id).exec();
 
     if (!bundle) {
       throw new NotFoundException('Bundle not found');
@@ -75,15 +174,17 @@ export class BundlesService {
     return bundle;
   }
 
-  //update bundle
-  async update(id: string, dto: UpdateBundleDto, userId: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new NotFoundException('Bundle not found');
-    }
+  // ---------- Update ----------
 
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new NotFoundException('Invalid user ID');
-    }
+  // Update an active bundle and record the user who changed it.
+  // Sanitize longDescription when it is included in the request.
+  async update(
+    id: string,
+    dto: UpdateBundleDto,
+    userId: string,
+  ): Promise<BundleDocument> {
+    this.validateObjectId(id);
+    this.validateObjectId(userId, 'Invalid user ID');
 
     const data: Record<string, any> = {
       ...dto,
@@ -96,9 +197,26 @@ export class BundlesService {
 
     try {
       const bundle = await this.bundleModel
-        .findByIdAndUpdate(id, data, {
-          returnDocument: 'after',
-          runValidators: true,
+        .findOneAndUpdate(
+          {
+            _id: id,
+            status: true,
+          },
+          data,
+          {
+            new: true,
+            runValidators: true,
+          },
+        )
+        .populate({
+          path: 'createdBy',
+          select: 'name',
+          model: 'User',
+        })
+        .populate({
+          path: 'updatedBy',
+          select: 'name',
+          model: 'User',
         })
         .exec();
 
@@ -107,24 +225,35 @@ export class BundlesService {
       }
 
       return bundle;
-    } catch (error: any) {
-      if (error.code === 11000) {
-        throw new ConflictException('Short code already exists');
-      }
-      throw error;
+    } catch (error: unknown) {
+      return this.handleDuplicateError(error);
     }
   }
 
-  //delete bundle
-  async remove(id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new NotFoundException('Bundle not found');
-    }
+  // ---------- Soft Delete ----------
 
-    const bundle = await this.bundleModel.findByIdAndDelete(id).exec();
+  // Mark the bundle inactive instead of permanently deleting it.
+  async remove(id: string): Promise<{ deleted: boolean }> {
+    this.validateObjectId(id);
+
+    const bundle = await this.bundleModel
+      .findOneAndUpdate(
+        {
+          _id: id,
+          status: true,
+        },
+        {
+          status: false,
+        },
+        {
+          new: true,
+          runValidators: true,
+        },
+      )
+      .exec();
 
     if (!bundle) {
-      throw new NotFoundException('Bundle not found');
+      throw new NotFoundException('Bundle not found or already deleted');
     }
 
     return { deleted: true };

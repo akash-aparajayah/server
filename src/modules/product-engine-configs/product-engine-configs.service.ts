@@ -244,8 +244,9 @@ export class ProductEngineConfigsService {
         _id: id,
         status: true,
       })
+      .populate('createdBy', 'name')
+      .populate('updatedBy', 'name')
       .exec();
-
     if (!config) {
       throw new NotFoundException('Engine configuration not found');
     }
