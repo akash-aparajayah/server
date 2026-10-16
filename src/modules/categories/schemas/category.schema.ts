@@ -8,7 +8,12 @@ export class Category {
   @Prop({ required: true, unique: true, trim: true })
   name: string;
 
-  @Prop({ required: true, unique: true, lowercase: true, trim: true })
+  @Prop({
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  })
   slug: string;
 
   @Prop({ trim: true })
@@ -17,6 +22,7 @@ export class Category {
   @Prop({ trim: true })
   description?: string;
 
+  // Active categories use true; soft-deleted categories use false
   @Prop({ type: Boolean, default: true })
   status: boolean;
 

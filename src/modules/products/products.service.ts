@@ -35,7 +35,7 @@ export class ProductsService {
   }
 
   private async assertRefs(category?: string, bundled?: string[]) {
-    if (category) await this.categories.findOne(category); // 404 if missing
+    if (category) await this.categories.findOneCategories(category); // 404 if missing
     if (bundled?.length) await Promise.all(bundled.map((id) => this.bundles.findOne(id)));
   }
 
