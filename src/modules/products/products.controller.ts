@@ -8,64 +8,89 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+
 import { ProductsService } from './products.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { QueryProductDto } from './dto/query-product.dto.js';
+
+import { ProductDocument } from './schemas/product.schema.js';
+
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { Role } from '../../common/enums/role.enum.js';
 
-@Roles(Role.ADMIN)
+type CurrentUserPayload = {
+  sub: string;
+};
+
+type PaginatedProductsResponse = {
+  items: ProductDocument[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 @Controller('products')
+@Roles(Role.ADMIN)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  // "Save Draft" / step 1 Next
-  @ResponseMessage('Product draft created successfully')
+  // Create product draft.
   @Post('create-product')
-  create(@Body() dto: CreateProductDto, @CurrentUser() user: any) {
+  @ResponseMessage('Product draft created successfully')
+  create(
+    @Body() dto: CreateProductDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ProductDocument> {
     return this.productsService.create(dto, user.sub);
   }
 
-  @ResponseMessage('Products fetched successfully')
+  // Get all products with pagination, search, and filters.
   @Get('get-all-products')
-  findAll(@Query() query: QueryProductDto) {
+  @ResponseMessage('Products fetched successfully')
+  findAll(@Query() query: QueryProductDto): Promise<PaginatedProductsResponse> {
     return this.productsService.findAll(query);
   }
 
-  @ResponseMessage('Product fetched successfully')
+  // Get one product by ID.
   @Get(':id/get-product')
-  findOne(@Param('id', ParseObjectIdPipe) id: string) {
+  @ResponseMessage('Product fetched successfully')
+  findOne(
+    @Param('id', ParseObjectIdPipe) id: string,
+  ): Promise<ProductDocument> {
     return this.productsService.findOne(id);
   }
 
-  // every step Next / Save Draft
-  @ResponseMessage('Product updated successfully')
+  // Update product, pricing, margin, marketplace, or dashboard.
   @Patch(':id/update-product')
+  @ResponseMessage('Product updated successfully')
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateProductDto,
-    @CurrentUser() user: any,
-  ) {
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ProductDocument> {
     return this.productsService.update(id, dto, user.sub);
   }
 
-  // "Publish" button
-  @ResponseMessage('Product published successfully')
+  // Publish product.
   @Post(':id/publish-product')
+  @ResponseMessage('Product published successfully')
   publish(
     @Param('id', ParseObjectIdPipe) id: string,
-    @CurrentUser() user: any,
-  ) {
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ProductDocument> {
     return this.productsService.publish(id, user.sub);
   }
 
-  @ResponseMessage('Product deleted successfully')
+  // Delete product.
   @Delete(':id/remove-product')
-  remove(@Param('id', ParseObjectIdPipe) id: string) {
+  @ResponseMessage('Product deleted successfully')
+  remove(
+    @Param('id', ParseObjectIdPipe) id: string,
+  ): Promise<{ deleted: boolean }> {
     return this.productsService.remove(id);
   }
 }

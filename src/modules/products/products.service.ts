@@ -1,106 +1,388 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Product, ProductDocument, ProductStatus, PublishMode } from './schemas/product.schema.js';
+
+import {
+  Product,
+  ProductDocument,
+  ProductStatus,
+  PublishMode,
+  MarkupType,
+} from './schemas/product.schema.js';
+
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { QueryProductDto } from './dto/query-product.dto.js';
+
 import { CategoriesService } from '../categories/categories.service.js';
 import { BundlesService } from '../bundles/bundles.service.js';
+
 import { DiscountType } from '../../common/enums/discount-type.enum.js';
 import { sanitizeRichText } from '../../common/utils/sanitize.util.js';
+
+type PaginatedProductsResponse = {
+  items: ProductDocument[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+type MarginCalculationInput = {
+  wholesalePrice?: number;
+  markupType?: MarkupType;
+  markupValue?: number;
+  retailPrice?: number;
+};
+
+type MarginCalculationResult = {
+  markupAmount?: number;
+  markupPercent?: number;
+  buyRate?: number;
+  marginVsRetail?: number;
+};
 
 @Injectable()
 export class ProductsService {
   constructor(
-    @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<ProductDocument>,
+
     private readonly categories: CategoriesService,
     private readonly bundles: BundlesService,
   ) {}
 
-  // ---------- helpers ----------
+  // --------------------------------------------------
+  // PRICING VALIDATION
+  // --------------------------------------------------
 
-  private assertPricing(p: { retailPrice?: number; discountType?: DiscountType; discountValue?: number | null }) {
-    const hasType = !!p.discountType;
+  private assertPricing(p: {
+    retailPrice?: number;
+    discountType?: DiscountType;
+    discountValue?: number | null;
+  }): void {
+    const hasType = Boolean(p.discountType);
     const hasValue = p.discountValue != null;
+
     if (hasType !== hasValue) {
-      throw new BadRequestException('discountType and discountValue must be given together');
+      throw new BadRequestException(
+        'discountType and discountValue must be given together',
+      );
     }
+
     if (p.discountType === DiscountType.Percentage && p.discountValue! > 100) {
       throw new BadRequestException('Percentage discount cannot exceed 100');
     }
-    if (p.discountType === DiscountType.Fixed && p.retailPrice != null && p.discountValue! > p.retailPrice) {
-      throw new BadRequestException('Discount cannot be more than the retail price');
+
+    if (
+      p.discountType === DiscountType.Fixed &&
+      p.retailPrice != null &&
+      p.discountValue! > p.retailPrice
+    ) {
+      throw new BadRequestException(
+        'Discount cannot be more than the retail price',
+      );
     }
   }
 
-  private async assertRefs(category?: string, bundled?: string[]) {
-    if (category) await this.categories.findOneCategories(category); // 404 if missing
-    if (bundled?.length) await Promise.all(bundled.map((id) => this.bundles.findOne(id)));
+  // --------------------------------------------------
+  // MARGIN CALCULATION
+  // --------------------------------------------------
+
+  private calculateMargin(p: MarginCalculationInput): MarginCalculationResult {
+    const { wholesalePrice, markupType, markupValue, retailPrice } = p;
+
+    // Margin details can be completed in a later draft step.
+    if (wholesalePrice == null || markupType == null || markupValue == null) {
+      return {};
+    }
+
+    if (
+      !Number.isFinite(wholesalePrice) ||
+      !Number.isFinite(markupValue) ||
+      wholesalePrice < 0 ||
+      markupValue < 0
+    ) {
+      throw new BadRequestException(
+        'Wholesale price and markup value must be valid non-negative numbers',
+      );
+    }
+
+    if (markupType === MarkupType.Percent && markupValue > 100) {
+      throw new BadRequestException('Markup percentage cannot exceed 100');
+    }
+
+    // Calculate markup amount.
+    const rawMarkupAmount =
+      markupType === MarkupType.Percent
+        ? (wholesalePrice * markupValue) / 100
+        : markupValue;
+
+    const markupAmount = Math.round(rawMarkupAmount * 100) / 100;
+
+    // Calculate markup percentage against wholesale price.
+    const markupPercent =
+      wholesalePrice > 0
+        ? Math.round((markupAmount / wholesalePrice) * 10000) / 100
+        : 0;
+
+    // Buy rate = wholesale price + markup amount.
+    const buyRate = Math.round((wholesalePrice + markupAmount) * 100) / 100;
+
+    // Assumption: marginVsRetail = retailPrice - buyRate.
+    const marginVsRetail =
+      retailPrice == null
+        ? undefined
+        : Math.round((retailPrice - buyRate) * 100) / 100;
+
+    return {
+      markupAmount,
+      markupPercent,
+      buyRate,
+      ...(marginVsRetail !== undefined ? { marginVsRetail } : {}),
+    };
   }
 
-  private cleanContent(dto: { marketplace?: any }) {
-    const m = dto.marketplace;
-    if (m?.longDescription) m.longDescription = sanitizeRichText(m.longDescription);
-    if (m?.pricingRenewalContent) m.pricingRenewalContent = sanitizeRichText(m.pricingRenewalContent);
+  // --------------------------------------------------
+  // REFERENCE VALIDATION
+  // --------------------------------------------------
+
+  private async assertRefs(
+    category?: string,
+    bundled?: string[],
+  ): Promise<void> {
+    if (category) {
+      await this.categories.findOneCategories(category);
+    }
+
+    if (bundled?.length) {
+      await Promise.all(bundled.map((id) => this.bundles.findOne(id)));
+    }
   }
 
-  // Publish munnadi ellaa required fields-um irukkanum
-  private assertPublishable(p: ProductDocument) {
+  // --------------------------------------------------
+  // SANITIZE RICH CONTENT
+  // --------------------------------------------------
+
+  private cleanContent(dto: {
+    marketplace?: {
+      longDescription?: string;
+      pricingRenewalContent?: string;
+    };
+  }): void {
+    const marketplace = dto.marketplace;
+
+    if (marketplace?.longDescription) {
+      marketplace.longDescription = sanitizeRichText(
+        marketplace.longDescription,
+      );
+    }
+
+    if (marketplace?.pricingRenewalContent) {
+      marketplace.pricingRenewalContent = sanitizeRichText(
+        marketplace.pricingRenewalContent,
+      );
+    }
+  }
+
+  // --------------------------------------------------
+  // PUBLISH VALIDATION
+  // --------------------------------------------------
+
+  private assertPublishable(product: ProductDocument): void {
     const missing: string[] = [];
-    if (!p.providerId) missing.push('providerId');
-    if (!p.marketplace?.shortDescription) missing.push('marketplace.shortDescription');
-    if (!p.marketplace?.longDescription) missing.push('marketplace.longDescription');
-    if (!p.marketplace?.pricingRenewalContent) missing.push('marketplace.pricingRenewalContent');
-    if (!p.dashboard?.template) missing.push('dashboard.template');
-    if (!p.dashboard?.title) missing.push('dashboard.title');
-    if (!p.dashboard?.callToAction) missing.push('dashboard.callToAction');
-    if (!p.dashboard?.featureTitle) missing.push('dashboard.featureTitle');
-    if (!p.dashboard?.shortDescription) missing.push('dashboard.shortDescription');
-    if (p.retailPrice == null) missing.push('retailPrice');
-    if (!p.placements?.length) missing.push('placements');
-    if (!p.perUserFrequencyCap) missing.push('perUserFrequencyCap');
-    if (!p.publishMode) missing.push('publishMode');
-    if (p.publishMode === PublishMode.Scheduled && !p.scheduledAt) missing.push('scheduledAt');
 
-    if (missing.length) {
-      throw new BadRequestException({ message: 'Complete these fields before publishing', missing });
+    // Overview.
+    if (!product.providerId) {
+      missing.push('providerId');
     }
-    if (p.scheduledAt && p.expiresAt && p.expiresAt <= p.scheduledAt) {
+
+    // Marketplace content.
+    if (!product.marketplace?.shortDescription) {
+      missing.push('marketplace.shortDescription');
+    }
+
+    if (!product.marketplace?.longDescription) {
+      missing.push('marketplace.longDescription');
+    }
+
+    if (!product.marketplace?.pricingRenewalContent) {
+      missing.push('marketplace.pricingRenewalContent');
+    }
+
+    // Dashboard content.
+    if (!product.dashboard?.template) {
+      missing.push('dashboard.template');
+    }
+
+    if (!product.dashboard?.title) {
+      missing.push('dashboard.title');
+    }
+
+    if (!product.dashboard?.callToAction) {
+      missing.push('dashboard.callToAction');
+    }
+
+    if (!product.dashboard?.featureTitle) {
+      missing.push('dashboard.featureTitle');
+    }
+
+    if (!product.dashboard?.shortDescription) {
+      missing.push('dashboard.shortDescription');
+    }
+
+    // Retail pricing.
+    if (product.retailPrice == null) {
+      missing.push('retailPrice');
+    }
+
+    // Margin inputs.
+    if (product.wholesalePrice == null) {
+      missing.push('wholesalePrice');
+    }
+
+    if (!product.markupType) {
+      missing.push('markupType');
+    }
+
+    if (product.markupValue == null) {
+      missing.push('markupValue');
+    }
+
+    // Calculated margin fields.
+    if (product.markupAmount == null) {
+      missing.push('markupAmount');
+    }
+
+    if (product.markupPercent == null) {
+      missing.push('markupPercent');
+    }
+
+    if (product.buyRate == null) {
+      missing.push('buyRate');
+    }
+
+    if (product.marginVsRetail == null) {
+      missing.push('marginVsRetail');
+    }
+
+    // Configuration.
+    if (!product.configurationId) {
+      missing.push('configurationId');
+    }
+
+    // Placement.
+    if (!product.placements?.length) {
+      missing.push('placements');
+    }
+
+    if (!product.perUserFrequencyCap) {
+      missing.push('perUserFrequencyCap');
+    }
+
+    // Publishing.
+    if (!product.publishMode) {
+      missing.push('publishMode');
+    }
+
+    if (product.publishMode === PublishMode.Scheduled && !product.scheduledAt) {
+      missing.push('scheduledAt');
+    }
+
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        message: 'Complete these fields before publishing',
+        missing,
+      });
+    }
+
+    if (
+      product.scheduledAt &&
+      product.expiresAt &&
+      product.expiresAt <= product.scheduledAt
+    ) {
       throw new BadRequestException('expiresAt must be after scheduledAt');
     }
-    if (p.expiresAt && p.expiresAt <= new Date()) {
+
+    if (product.expiresAt && product.expiresAt <= new Date()) {
       throw new BadRequestException('expiresAt must be in the future');
     }
   }
 
-  // ---------- CRUD ----------
+  // --------------------------------------------------
+  // CREATE PRODUCT DRAFT
+  // --------------------------------------------------
 
-  async create(dto: CreateProductDto, userId: string) {
+  async create(
+    dto: CreateProductDto,
+    userId: string,
+  ): Promise<ProductDocument> {
     this.assertPricing(dto);
+
     await this.assertRefs(dto.category, dto.bundled);
+
     this.cleanContent(dto);
+
+    const marginData = this.calculateMargin({
+      wholesalePrice: dto.wholesalePrice,
+      markupType: dto.markupType,
+      markupValue: dto.markupValue,
+      retailPrice: dto.retailPrice,
+    });
 
     try {
       return await this.productModel.create({
         ...dto,
-        status: ProductStatus.Draft, // client status set panna koodathu
+        ...marginData,
+        status: ProductStatus.Draft,
         createdBy: userId,
         updatedBy: userId,
       });
-    } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('Product name already exists');
-      throw e;
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 11000
+      ) {
+        throw new ConflictException('Product name already exists');
+      }
+
+      throw error;
     }
   }
 
-  async findAll(q: QueryProductDto) {
-    const filter: Record<string, any> = {};
-    if (q.status) filter.status = q.status;
-    if (q.category) filter.category = q.category;
-    if (q.search) {
-      const safe = q.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.name = { $regex: safe, $options: 'i' };
+  // --------------------------------------------------
+  // GET ALL PRODUCTS
+  // --------------------------------------------------
+
+  async findAll(q: QueryProductDto): Promise<PaginatedProductsResponse> {
+    const page = Math.max(1, Number(q.page) || 1);
+
+    const limit = Math.min(100, Math.max(1, Number(q.limit) || 10));
+
+    const filter: Record<string, unknown> = {};
+
+    if (q.status) {
+      filter.status = q.status;
+    }
+
+    if (q.category) {
+      filter.category = q.category;
+    }
+
+    if (q.search?.trim()) {
+      const safe = q.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      filter.name = {
+        $regex: safe,
+        $options: 'i',
+      };
     }
 
     const [items, total] = await Promise.all([
@@ -108,78 +390,175 @@ export class ProductsService {
         .find(filter)
         .populate('category', 'name')
         .populate('bundled', 'name shortCode')
-        .populate('engineconfig', 'name')
+        .populate('configurationId', 'name')
         .populate('createdBy', 'name')
         .populate('updatedBy', 'name')
         .sort({ createdAt: -1 })
-        .skip((q.page - 1) * q.limit)
-        .limit(q.limit)
+        .skip((page - 1) * limit)
+        .limit(limit)
         .exec(),
-      this.productModel.countDocuments(filter),
+
+      this.productModel.countDocuments(filter).exec(),
     ]);
 
-    return { items, total, page: q.page, limit: q.limit };
+    return {
+      items,
+      total,
+      page,
+      limit,
+    };
   }
 
-  // MarginsService idhaiyum use pannum (product irukka nu check ku)
-  async findOne(id: string) {
+  // --------------------------------------------------
+  // GET PRODUCT BY ID
+  // --------------------------------------------------
+
+  async findOne(id: string): Promise<ProductDocument> {
     const product = await this.productModel
       .findById(id)
       .populate('category', 'name')
       .populate('bundled', 'name shortCode')
+      .populate('configurationId', 'name')
+      .populate('createdBy', 'name')
+      .populate('updatedBy', 'name')
       .exec();
-    if (!product) throw new NotFoundException('Product not found');
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
     return product;
   }
 
-  async update(id: string, dto: UpdateProductDto, userId: string) {
+  // --------------------------------------------------
+  // UPDATE PRODUCT
+  // --------------------------------------------------
+
+  async update(
+    id: string,
+    dto: UpdateProductDto,
+    userId: string,
+  ): Promise<ProductDocument> {
     const current = await this.productModel.findById(id).exec();
-    if (!current) throw new NotFoundException('Product not found');
+
+    if (!current) {
+      throw new NotFoundException('Product not found');
+    }
 
     this.assertPricing({
       retailPrice: dto.retailPrice ?? current.retailPrice,
       discountType: dto.discountType ?? current.discountType,
       discountValue: dto.discountValue ?? current.discountValue,
     });
+
     await this.assertRefs(dto.category, dto.bundled);
+
     this.cleanContent(dto);
 
-    // marketplace / dashboard: oru tab save pannina mathadhu tab data azhiyaadhu
+    // Recalculate margin using updated and existing values.
+    const marginData = this.calculateMargin({
+      wholesalePrice: dto.wholesalePrice ?? current.wholesalePrice,
+      markupType: dto.markupType ?? current.markupType,
+      markupValue: dto.markupValue ?? current.markupValue,
+      retailPrice: dto.retailPrice ?? current.retailPrice,
+    });
+
+    // Update nested content without deleting other fields.
     const { marketplace, dashboard, ...rest } = dto;
-    const set: Record<string, any> = { ...rest, updatedBy: userId };
-    for (const [k, v] of Object.entries(marketplace ?? {})) set[`marketplace.${k}`] = v;
-    for (const [k, v] of Object.entries(dashboard ?? {})) set[`dashboard.${k}`] = v;
+
+    const set: Record<string, unknown> = {
+      ...rest,
+      ...marginData,
+      updatedBy: userId,
+    };
+
+    for (const [key, value] of Object.entries(marketplace ?? {})) {
+      set[`marketplace.${key}`] = value;
+    }
+
+    for (const [key, value] of Object.entries(dashboard ?? {})) {
+      set[`dashboard.${key}`] = value;
+    }
 
     try {
       const product = await this.productModel
-        .findByIdAndUpdate(id, { $set: set }, { returnDocument: 'after', runValidators: true })
+        .findByIdAndUpdate(
+          id,
+          { $set: set },
+          {
+            returnDocument: 'after',
+            runValidators: true,
+          },
+        )
         .exec();
+
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
+
       return product;
-    } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('Product name already exists');
-      throw e;
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 11000
+      ) {
+        throw new ConflictException('Product name already exists');
+      }
+
+      throw error;
     }
   }
 
-  async publish(id: string, userId: string) {
+  // --------------------------------------------------
+  // PUBLISH PRODUCT
+  // --------------------------------------------------
+
+  async publish(id: string, userId: string): Promise<ProductDocument> {
     const product = await this.productModel.findById(id).exec();
-    if (!product) throw new NotFoundException('Product not found');
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Calculate margin values before validating publishing.
+    const marginData = this.calculateMargin({
+      wholesalePrice: product.wholesalePrice,
+      markupType: product.markupType,
+      markupValue: product.markupValue,
+      retailPrice: product.retailPrice,
+    });
+
+    Object.assign(product, marginData);
 
     this.assertPublishable(product);
 
     const goesLater =
       product.publishMode === PublishMode.Scheduled &&
-      product.scheduledAt &&
+      product.scheduledAt != null &&
       product.scheduledAt > new Date();
 
     product.status = goesLater ? ProductStatus.Scheduled : ProductStatus.Active;
-    product.updatedBy = userId as any;
+
+    product.updatedBy = userId as never;
+
     return product.save();
   }
 
-  async remove(id: string) {
+  // --------------------------------------------------
+  // DELETE PRODUCT
+  // --------------------------------------------------
+
+  async remove(id: string): Promise<{ deleted: boolean }> {
     const product = await this.productModel.findByIdAndDelete(id).exec();
-    if (!product) throw new NotFoundException('Product not found');
-    return { deleted: true };
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return {
+      deleted: true,
+    };
   }
 }

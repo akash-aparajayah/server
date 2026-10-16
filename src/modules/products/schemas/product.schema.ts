@@ -28,6 +28,11 @@ export enum PublishMode {
   Scheduled = 'scheduled',
 }
 
+export enum MarkupType {
+  Flat = 'flat',
+  Percent = 'percent',
+}
+
 @Schema({ _id: false })
 export class MarketplaceContent {
   @Prop({ type: String }) termsUrl?: string;
@@ -78,17 +83,54 @@ export class Product {
   @Prop({ type: DashboardContentSchema, default: () => ({}) })
   dashboard: DashboardContent;
 
-  // Step 3: Pricing & Bundle
-  @Prop({ type: Number, min: 0 }) retailPrice?: number;
-  @Prop({ type: String, enum: DiscountType }) discountType?: DiscountType;
-  @Prop({ type: Number, min: 0 }) discountValue?: number;
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Bundle' }], default: [] })
+  // Step 3: Pricing, Margin & Bundle
+
+  @Prop({ type: Number, min: 0 })
+  retailPrice?: number;
+
+  @Prop({ type: String, enum: DiscountType })
+  discountType?: DiscountType;
+
+  @Prop({ type: Number, min: 0 })
+  discountValue?: number;
+
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'Bundle' }],
+    default: [],
+  })
   bundled: Types.ObjectId[];
+
+  // Margin fields merged into Product
+  @Prop({ type: Number, min: 0 })
+  wholesalePrice?: number;
+
+  @Prop({ type: String, enum: MarkupType })
+  markupType?: MarkupType;
+
+  @Prop({ type: Number, min: 0 })
+  markupValue?: number;
+
+  @Prop({ type: Number })
+  markupAmount?: number;
+
+  @Prop({ type: Number })
+  markupPercent?: number;
+
+  @Prop({ type: Number })
+  buyRate?: number;
+
+  @Prop({ type: Number })
+  marginVsRetail?: number;
 
   // Step 4: Audience
   @Prop({ type: String, enum: AudienceType, default: AudienceType.Everyone })
   audienceType: AudienceType;
-  @Prop({ type: Types.ObjectId, ref: 'EngineConfig', required: true, index: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'EngineConfig',
+    required: true,
+    index: true,
+  })
   configurationId: Types.ObjectId;
 
   // Step 5: Placement
