@@ -7,7 +7,11 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
-import { Bundle, BundleDocument } from './schemas/bundle.schema.js';
+import {
+  Bundle,
+  BundleDocument,
+  PricingType,
+} from './schemas/bundle.schema.js';
 
 import { CreateBundleDto } from './dto/create-bundle.dto.js';
 import { UpdateBundleDto } from './dto/update-bundle.dto.js';
@@ -70,6 +74,50 @@ export class BundlesService {
       return await bundle.save();
     } catch (error: unknown) {
       return this.handleDuplicateError(error);
+    }
+  }
+
+  // ---------- DashBoard -----------
+  
+  async dashBoardData(): Promise<any> {
+    try {
+      const [totalData, pricingTypeCounts] = await Promise.all([
+        // Get the total number of records
+        this.bundleModel.countDocuments().exec(),
+
+        // Count records grouped by PricingType
+        this.bundleModel
+          .aggregate([
+            {
+              $group: {
+                _id: '$pricingType',
+                count: { $sum: 1 },
+              },
+            },
+          ])
+          .exec(),
+      ]);
+
+      // Return counts for both types, including zero counts
+      const counts = {
+        addOn: 0,
+        bundle: 0,
+      };
+
+      for (const item of pricingTypeCounts) {
+        if (item._id === PricingType.AddOn) {
+          counts.addOn = item.count;
+        } else if (item._id === PricingType.Bundle) {
+          counts.bundle = item.count;
+        }
+      }
+
+      return {
+        totalData,
+        pricingTypeCounts: counts,
+      };
+    } catch (error) {
+      throw error;
     }
   }
 

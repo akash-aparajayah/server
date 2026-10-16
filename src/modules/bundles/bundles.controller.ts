@@ -39,6 +39,13 @@ export class BundlesController {
     return this.bundlesService.create(dto, user.sub);
   }
 
+  // get dashBoard DashboardContent
+  @ResponseMessage('Dashboard Bundles Data fetched successfully')
+  @Get('dashBoard-bundles')
+  dashBoardData(): Promise<any> {
+    return this.bundlesService.dashBoardData();
+  }
+
   // Get active bundles with pagination and optional search.
   @ResponseMessage('Bundles fetched successfully')
   @Get('get-all-bundles')
