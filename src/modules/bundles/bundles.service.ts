@@ -127,7 +127,9 @@ export class BundlesService {
         //   select: 'name',
         //   model: 'User',
         // })
-        .select('_id name ppricingType price discountValue sellingPrice status createdAt')
+        .select(
+          '_id name ppricingType price discountValue sellingPrice status createdAt',
+        )
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
