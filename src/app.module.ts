@@ -16,6 +16,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { MarginsModule } from './modules/margins/margins.module.js';
 import { ProductEngineConfigsModule } from './modules/product-engine-configs/product-engine-configs.module.js';
+import { ProvidersModule } from './modules/providers/providers.module.js';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ProductEngineConfigsModule } from './modules/product-engine-configs/pro
     ProductsModule,
     MarginsModule,
     ProductEngineConfigsModule,
+    ProvidersModule
   ],
 
   controllers: [AppController],
