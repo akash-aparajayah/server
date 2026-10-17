@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SubEntity, SubEntityDocument } from './schemas/sub-entity.schema.js';
@@ -10,7 +14,8 @@ import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 @Injectable()
 export class SubEntitiesService {
   constructor(
-    @InjectModel(SubEntity.name) private subEntityModel: Model<SubEntityDocument>,
+    @InjectModel(SubEntity.name)
+    private subEntityModel: Model<SubEntityDocument>,
     private readonly entities: EntitiesService,
   ) {}
 
@@ -24,14 +29,20 @@ export class SubEntitiesService {
         updatedBy: user.sub,
       });
     } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('This entity already has a sub entity with this name');
+      if (e.code === 11000)
+        throw new ConflictException(
+          'This entity already has a sub entity with this name',
+        );
       throw e;
     }
   }
 
   async findAllByEntity(entityId: string, user: AuthUser) {
     await this.entities.findOne(entityId, user); // owner check
-    return this.subEntityModel.find({ entity: entityId }).sort({ createdAt: -1 }).exec();
+    return this.subEntityModel
+      .find({ entity: entityId })
+      .sort({ createdAt: -1 })
+      .exec();
   }
 
   async findOne(id: string, user: AuthUser) {
@@ -47,7 +58,10 @@ export class SubEntitiesService {
     try {
       return await sub.save();
     } catch (e: any) {
-      if (e.code === 11000) throw new ConflictException('This entity already has a sub entity with this name');
+      if (e.code === 11000)
+        throw new ConflictException(
+          'This entity already has a sub entity with this name',
+        );
       throw e;
     }
   }
@@ -56,5 +70,14 @@ export class SubEntitiesService {
     const sub = await this.findOne(id, user);
     await sub.deleteOne();
     return { deleted: true };
+  }
+
+  // no user / owner check: used only by ApiKeyGuard (API key requests have no logged-in user)
+  async findActiveById(id: string) {
+    return this.subEntityModel
+      .findOne({ _id: id, isActive: true })
+      .select('_id')
+      .lean()
+      .exec();
   }
 }

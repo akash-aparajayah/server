@@ -1,14 +1,31 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { randomBytes } from 'crypto';
-import { ApiKey, ApiKeyDocument } from './schemas/api-key.schema.js';
+import {
+  ApiKey,
+  ApiKeyDocument,
+  ApiKeyType,
+} from './schemas/api-key.schema.js';
 import { CreateApiKeyDto } from './dto/create-api-key.dto.js';
-import { EntitiesService } from '../entities/entities.service.js';
+import { RegenerateApiKeyDto } from './dto/regenerate-api-key.dto.js';
+import type {
+  ApiKeyCreateResponse,
+  ApiKeyRevokeResponse,
+} from './interfaces/api-key-response.interface.js';
+import type { ApiKeyContext } from '../../common/interfaces/api-key-context.interface.js';
 import type { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { sha256 } from '../../common/utils/hash.util.js';
+import { SubEntitiesService } from '../sub-entities/sub-entities.service.js';
 
-const KEY_PREFIX = 'rk_live_';
+const KEY_PREFIX: Record<ApiKeyType, string> = {
+  [ApiKeyType.LIVE]: 'cn_live_',
+  [ApiKeyType.SANDBOX]: 'cn_sandBox_',
+};
 const LAST_USED_THROTTLE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -16,23 +33,31 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export class ApiKeysService {
   constructor(
     @InjectModel(ApiKey.name) private apiKeyModel: Model<ApiKeyDocument>,
-    private readonly entities: EntitiesService,
+    private readonly subEntity: SubEntitiesService,
   ) {}
 
-  private generateKey() {
-    const rawKey = KEY_PREFIX + randomBytes(32).toString('base64url');
+  private generateKey(type: ApiKeyType): {
+    rawKey: string;
+    keyHash: string;
+    prefix: string;
+  } {
+    const rawKey = KEY_PREFIX[type] + randomBytes(32).toString('base64url');
     return { rawKey, keyHash: sha256(rawKey), prefix: rawKey.slice(0, 12) };
   }
 
-  private calcExpiry(expiresInDays?: number) {
+  private calcExpiry(expiresInDays?: number): Date | null {
     return expiresInDays ? new Date(Date.now() + expiresInDays * DAY_MS) : null;
   }
 
   // raw key is returned only once
-  private toCreateResponse(doc: ApiKeyDocument, rawKey: string) {
+  private toCreateResponse(
+    doc: ApiKeyDocument,
+    rawKey: string,
+  ): ApiKeyCreateResponse {
     return {
       id: doc._id,
-      entityId: doc.entityId,
+      subEntityId: doc.subEntityId,
+      type: doc.type,
       note: doc.note,
       prefix: doc.prefix,
       expiresAt: doc.expiresAt,
@@ -40,13 +65,18 @@ export class ApiKeysService {
     };
   }
 
-  async create(entityId: string, dto: CreateApiKeyDto, user: AuthUser) {
-    await this.entities.findOne(entityId, user); // owner check (404 / 403)
+  async create(
+    subEntityId: string,
+    dto: CreateApiKeyDto,
+    user: AuthUser,
+  ): Promise<ApiKeyCreateResponse> {
+    await this.subEntity.findOne(subEntityId, user); // owner check (404 / 403)
 
-    const { rawKey, keyHash, prefix } = this.generateKey();
+    const { rawKey, keyHash, prefix } = this.generateKey(dto.type);
     try {
       const doc = await this.apiKeyModel.create({
-        entityId,
+        subEntityId,
+        type: dto.type,
         note: dto.note,
         keyHash,
         prefix,
@@ -57,62 +87,73 @@ export class ApiKeysService {
     } catch (e: any) {
       if (e.code === 11000) {
         throw new ConflictException(
-          'This entity already has an active key. Revoke or regenerate it.',
+          `A ${dto.type} key already exists for this sub entity. Use regenerate to replace it.`,
         );
       }
       throw e;
     }
   }
 
-  async findByEntity(entityId: string, user: AuthUser) {
-    await this.entities.findOne(entityId, user);
-    return this.apiKeyModel.find({ entityId }).sort({ createdAt: -1 }).exec();
+  async findByEntity(
+    subEntityId: string,
+    user: AuthUser,
+  ): Promise<ApiKeyDocument[]> {
+    await this.subEntity.findOne(subEntityId, user);
+    return this.apiKeyModel.find({ subEntityId }).sort({ type: 1 }).exec();
   }
 
-  async regenerate(id: string, dto: CreateApiKeyDto, user: AuthUser) {
-    const old = await this.apiKeyModel.findById(id).exec();
-    if (!old) throw new NotFoundException('API key not found');
+  // Overwrites the SAME document (active, expired or revoked). No new doc is created.
+  async regenerate(
+    id: string,
+    dto: RegenerateApiKeyDto,
+    user: AuthUser,
+  ): Promise<ApiKeyCreateResponse> {
+    const existing = await this.apiKeyModel.findById(id).exec();
+    if (!existing) throw new NotFoundException('API key not found');
 
-    await this.entities.findOne(old.entityId.toString(), user);
+    await this.subEntity.findOne(existing.subEntityId.toString(), user);
 
-    if (!old.isActive) {
-      throw new ConflictException('This key is already revoked. Create a new one instead.');
-    }
+    // To block reviving revoked keys, uncomment:
+    // if (!existing.isActive) {
+    //   throw new ConflictException('This key is revoked and cannot be regenerated.');
+    // }
 
-    old.isActive = false;
-    await old.save();
+    const { rawKey, keyHash, prefix } = this.generateKey(existing.type);
 
-    const { rawKey, keyHash, prefix } = this.generateKey();
-    try {
-      const doc = await this.apiKeyModel.create({
-        entityId: old.entityId,
-        note: dto.note ?? old.note,
-        keyHash,
-        prefix,
-        expiresAt: this.calcExpiry(dto.expiresInDays),
-        createdBy: user.sub,
-      });
-      return this.toCreateResponse(doc, rawKey);
-    } catch (e) {
-      old.isActive = true; // rollback
-      await old.save();
-      throw e;
-    }
+    const doc = await this.apiKeyModel
+      .findByIdAndUpdate(
+        id,
+        {
+          keyHash,
+          prefix,
+          note: dto.note ?? existing.note,
+          expiresAt: this.calcExpiry(dto.expiresInDays),
+          lastUsedAt: null,
+          isActive: true,
+          regeneratedBy: user.sub,
+          regeneratedAt: new Date(),
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!doc) throw new NotFoundException('API key not found');
+    return this.toCreateResponse(doc, rawKey);
   }
 
-  async revoke(id: string, user: AuthUser) {
+  async revoke(id: string, user: AuthUser): Promise<ApiKeyRevokeResponse> {
     const key = await this.apiKeyModel.findById(id).exec();
     if (!key) throw new NotFoundException('API key not found');
 
-    await this.entities.findOne(key.entityId.toString(), user);
+    await this.subEntity.findOne(key.subEntityId.toString(), user);
 
     key.isActive = false;
     await key.save();
     return { revoked: true };
   }
 
-  // ApiKeyGuard uses this
-  async validate(rawKey: string) {
+  // ApiKeyGuard uses this (no logged-in user here, so never call findOne)
+  async validate(rawKey: string): Promise<ApiKeyContext | null> {
     const key = await this.apiKeyModel
       .findOne({ keyHash: sha256(rawKey), isActive: true })
       .exec();
@@ -120,8 +161,10 @@ export class ApiKeysService {
 
     if (key.expiresAt && key.expiresAt.getTime() < Date.now()) return null;
 
-    const entity = await this.entities.findActiveById(key.entityId.toString());
-    if (!entity) return null; // entity deleted / inactive
+    const entity = await this.subEntity.findActiveById(
+      key.subEntityId.toString(),
+    );
+    if (!entity) return null; // sub entity deleted / inactive
 
     const threshold = new Date(Date.now() - LAST_USED_THROTTLE_MS);
     await this.apiKeyModel
@@ -134,6 +177,10 @@ export class ApiKeysService {
       )
       .exec();
 
-    return { keyId: key._id.toString(), entityId: key.entityId.toString() };
+    return {
+      keyId: key._id.toString(),
+      subEntityId: key.subEntityId.toString(),
+      type: key.type,
+    };
   }
 }

@@ -3,10 +3,19 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type ApiKeyDocument = HydratedDocument<ApiKey>;
 
+export enum ApiKeyType {
+  LIVE = 'live',
+  SANDBOX = 'sandbox',
+}
+
 @Schema({ timestamps: true })
 export class ApiKey {
-  @Prop({ type: Types.ObjectId, ref: 'Entity', required: true })
-  entityId: Types.ObjectId;
+  // use the exact model name registered for sub entities
+  @Prop({ type: Types.ObjectId, ref: 'SubEntity', required: true })
+  subEntityId: Types.ObjectId;
+
+  @Prop({ type: String, enum: ApiKeyType, required: true })
+  type: ApiKeyType;
 
   @Prop({ trim: true, maxlength: 200 })
   note?: string;
@@ -30,12 +39,15 @@ export class ApiKey {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
+  regeneratedBy?: Types.ObjectId | null;
+
+  @Prop({ type: Date, default: null })
+  regeneratedAt?: Date | null;
 }
 
 export const ApiKeySchema = SchemaFactory.createForClass(ApiKey);
 
-// one live key per entity
-ApiKeySchema.index(
-  { entityId: 1 },
-  { unique: true, partialFilterExpression: { isActive: true } },
-);
+// exactly ONE document per sub entity per type (live / sandbox)
+ApiKeySchema.index({ subEntityId: 1, type: 1 }, { unique: true });
