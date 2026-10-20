@@ -46,6 +46,13 @@ export class AuthController {
   @ResponseMessage('User fetched successfully')
   @Get('me')
   me(@CurrentUser() user: any) {
-    return { id: user.sub, email: user.email, role: user.role };
+
+
+    return {
+      id: user.sub,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
   }
 }

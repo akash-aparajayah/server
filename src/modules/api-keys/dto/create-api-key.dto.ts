@@ -3,9 +3,11 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiKeyType } from '../schemas/api-key.schema.js';
 
 export class CreateApiKeyDto {
@@ -13,6 +15,7 @@ export class CreateApiKeyDto {
   type: ApiKeyType;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(200)
   note?: string;
@@ -20,5 +23,6 @@ export class CreateApiKeyDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(365)
   expiresInDays?: number;
 }

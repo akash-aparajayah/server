@@ -5,6 +5,7 @@ import { ProvidersController } from './providers.controller.js';
 import { ProvidersService } from './providers.service.js';
 
 import { Provider, ProviderSchema } from './schemas/provider.schema.js';
+import { Counter, CounterSchema } from '../../common/schemas/counter.schema.js';
 
 @Module({
   imports: [
@@ -12,6 +13,10 @@ import { Provider, ProviderSchema } from './schemas/provider.schema.js';
       {
         name: Provider.name,
         schema: ProviderSchema,
+      },
+      {
+        name: Counter.name,
+        schema: CounterSchema,
       },
     ]),
   ],

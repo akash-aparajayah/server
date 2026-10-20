@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { Status } from '../../../common/enums/status.enum.js';
 
 export type SubEntityDocument = HydratedDocument<SubEntity>;
 
@@ -19,8 +18,8 @@ export class SubEntity {
   @Prop({ trim: true })
   description?: string;
 
-  @Prop({ type: String, enum: Status, default: Status.Active })
-  status: Status;
+  @Prop({ default: true })
+  isActive: boolean;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;

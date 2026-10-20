@@ -1,5 +1,12 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
-import { Status } from '../../../common/enums/status.enum.js';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateEntityDto {
   @IsString()
@@ -17,6 +24,6 @@ export class CreateEntityDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(Status)
-  status?: Status;
+  @IsBoolean()
+  isActive: boolean;
 }

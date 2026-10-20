@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { JwtStrategy } from './strategies/jwt.strategy.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { RolesGuard } from '../../common/guards/roles.guard.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard }, // first: check token
     { provide: APP_GUARD, useClass: RolesGuard }, // second: check role
   ],

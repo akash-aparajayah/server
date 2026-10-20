@@ -49,5 +49,13 @@ export class ApiKey {
 
 export const ApiKeySchema = SchemaFactory.createForClass(ApiKey);
 
-// exactly ONE document per sub entity per type (live / sandbox)
-ApiKeySchema.index({ subEntityId: 1, type: 1 }, { unique: true });
+// Allow historical/revoked keys, but only one active key
+// per sub-entity and type (live / sandbox).
+ApiKeySchema.index(
+  { subEntityId: 1, type: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isActive: true },
+    name: 'uniq_active_api_key_per_subentity_type',
+  },
+);

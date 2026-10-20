@@ -15,6 +15,7 @@ import { CreateApiKeyDto } from './dto/create-api-key.dto.js';
 import { RegenerateApiKeyDto } from './dto/regenerate-api-key.dto.js';
 import type {
   ApiKeyCreateResponse,
+  ApiKeyListResponse,
   ApiKeyRevokeResponse,
 } from './interfaces/api-key-response.interface.js';
 import type { ApiKeyContext } from '../../common/interfaces/api-key-context.interface.js';
@@ -97,58 +98,120 @@ export class ApiKeysService {
   async findByEntity(
     subEntityId: string,
     user: AuthUser,
-  ): Promise<ApiKeyDocument[]> {
+  ): Promise<ApiKeyListResponse[]> {
     await this.subEntity.findOne(subEntityId, user);
-    return this.apiKeyModel.find({ subEntityId }).sort({ type: 1 }).exec();
+
+    const keys = await this.apiKeyModel
+      .find({ subEntityId })
+      .select('_id subEntityId type note prefix expiresAt lastUsedAt isActive')
+      .sort({ type: 1 })
+      .lean()
+      .exec();
+
+    return keys.map((key) => ({
+      id: key._id,
+      subEntityId: key.subEntityId,
+      type: key.type,
+      note: key.note,
+      prefix: key.prefix,
+      expiresAt: key.expiresAt,
+      lastUsedAt: key.lastUsedAt,
+      isActive: key.isActive,
+    }));
   }
 
   // Overwrites the SAME document (active, expired or revoked). No new doc is created.
+
   async regenerate(
     id: string,
     dto: RegenerateApiKeyDto,
     user: AuthUser,
   ): Promise<ApiKeyCreateResponse> {
     const existing = await this.apiKeyModel.findById(id).exec();
-    if (!existing) throw new NotFoundException('API key not found');
+
+    if (!existing) {
+      throw new NotFoundException('API key not found');
+    }
 
     await this.subEntity.findOne(existing.subEntityId.toString(), user);
 
-    // To block reviving revoked keys, uncomment:
-    // if (!existing.isActive) {
-    //   throw new ConflictException('This key is revoked and cannot be regenerated.');
-    // }
+    if (!existing.isActive) {
+      throw new ConflictException(
+        'This API key has been revoked and cannot be regenerated.',
+      );
+    }
 
     const { rawKey, keyHash, prefix } = this.generateKey(existing.type);
 
+    // Only update if the key is still active.
+    // This prevents a concurrent revocation from being undone.
     const doc = await this.apiKeyModel
-      .findByIdAndUpdate(
-        id,
+      .findOneAndUpdate(
         {
-          keyHash,
-          prefix,
-          note: dto.note ?? existing.note,
-          expiresAt: this.calcExpiry(dto.expiresInDays),
-          lastUsedAt: null,
+          _id: id,
           isActive: true,
-          regeneratedBy: user.sub,
-          regeneratedAt: new Date(),
         },
-        { new: true },
+        {
+          $set: {
+            keyHash,
+            prefix,
+            note: dto.note ?? existing.note,
+            expiresAt: this.calcExpiry(dto.expiresInDays),
+            lastUsedAt: null,
+            regeneratedBy: user.sub,
+            regeneratedAt: new Date(),
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+        },
       )
       .exec();
 
-    if (!doc) throw new NotFoundException('API key not found');
+    if (!doc) {
+      throw new ConflictException(
+        'The API key was revoked or changed during regeneration. Please refresh and try again.',
+      );
+    }
+
     return this.toCreateResponse(doc, rawKey);
   }
 
   async revoke(id: string, user: AuthUser): Promise<ApiKeyRevokeResponse> {
     const key = await this.apiKeyModel.findById(id).exec();
-    if (!key) throw new NotFoundException('API key not found');
 
+    if (!key) {
+      throw new NotFoundException('API key not found');
+    }
+
+    // Verify ownership before changing or returning the key's status.
     await this.subEntity.findOne(key.subEntityId.toString(), user);
 
-    key.isActive = false;
-    await key.save();
+    if (!key.isActive) {
+      return { revoked: true };
+    }
+
+    const result = await this.apiKeyModel
+      .updateOne({ _id: id, isActive: true }, { $set: { isActive: false } })
+      .exec();
+
+    if (result.matchedCount === 0) {
+      const latest = await this.apiKeyModel.findById(id).exec();
+
+      if (!latest) {
+        throw new NotFoundException('API key not found');
+      }
+
+      if (!latest.isActive) {
+        return { revoked: true };
+      }
+
+      throw new ConflictException(
+        'The API key changed during revocation. Please try again.',
+      );
+    }
+
     return { revoked: true };
   }
 
@@ -159,8 +222,9 @@ export class ApiKeysService {
       .exec();
     if (!key) return null;
 
-    if (key.expiresAt && key.expiresAt.getTime() < Date.now()) return null;
-
+    if (key.expiresAt && key.expiresAt.getTime() <= Date.now()) {
+      return null;
+    }
     const entity = await this.subEntity.findActiveById(
       key.subEntityId.toString(),
     );

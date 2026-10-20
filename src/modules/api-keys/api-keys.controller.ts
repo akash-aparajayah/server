@@ -8,11 +8,11 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiKeysService } from './api-keys.service.js';
-import type { ApiKeyDocument } from './schemas/api-key.schema.js';
 import { CreateApiKeyDto } from './dto/create-api-key.dto.js';
 import { RegenerateApiKeyDto } from './dto/regenerate-api-key.dto.js';
 import type {
   ApiKeyCreateResponse,
+  ApiKeyListResponse,
   ApiKeyRevokeResponse,
 } from './interfaces/api-key-response.interface.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -44,7 +44,7 @@ export class ApiKeysController {
   async findByEntity(
     @Param('subEntityId', ParseObjectIdPipe) subEntityId: string,
     @CurrentUser() user: any,
-  ): Promise<ApiKeyDocument[]> {
+  ): Promise<ApiKeyListResponse[]> {
     return this.apiKeysService.findByEntity(subEntityId, {
       sub: user.sub,
       role: user.role,

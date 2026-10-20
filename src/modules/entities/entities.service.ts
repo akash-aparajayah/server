@@ -15,7 +15,6 @@ import { CreateEntityDto } from './dto/create-entity.dto.js';
 import { UpdateEntityDto } from './dto/update-entity.dto.js';
 import { Role } from '../../common/enums/role.enum.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
-import { Status } from '../../common/enums/status.enum.js';
 import { ApiKey, ApiKeyDocument } from '../api-keys/schemas/api-key.schema.js';
 
 @Injectable()
@@ -29,7 +28,7 @@ export class EntitiesService {
 
   // ApiKeysService.validate use pannum (owner check illa, key already verified)
   async findActiveById(id: string) {
-    return this.entityModel.findOne({ _id: id, status: Status.Active }).exec();
+    return this.entityModel.findOne({ _id: id, isActive:true }).exec();
   }
   async create(dto: CreateEntityDto, userId: string) {
     try {

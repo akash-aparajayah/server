@@ -12,14 +12,50 @@ export interface CredentialSetView {
   updatedAt?: Date;
 }
 
+// Returns the real secret values. Use ONLY for the protected credentials endpoint.
+export interface CredentialSetDetailView {
+  mode: ProviderMode;
+  apiUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  refreshToken?: string;
+  instanceUrl?: string;
+  updatedAt?: Date;
+}
+
+export interface AuditUserView {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
 export interface ProviderView {
   id: Types.ObjectId;
+  providerId: string;
   name: string;
   phone?: string;
   email?: string;
-  logo: string;
-  credentials: CredentialSetView[];
+  logo?: string;
+  credentials?: CredentialSetView[];
   isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  createdBy?: AuditUserView;
+  updatedBy?: AuditUserView;
+}
+
+export interface ProviderListView {
+  id: string;
+  providerId: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  createdBy?: AuditUserView;
+  updatedBy?: AuditUserView;
 }
 
 export interface ProviderCredentialSecrets {

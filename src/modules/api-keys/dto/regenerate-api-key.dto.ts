@@ -1,14 +1,23 @@
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
 
-// type cannot be changed on regenerate (it is read from the existing document)
 export class RegenerateApiKeyDto {
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(200)
   note?: string;
 
-  // required, so a regenerated key never silently becomes "never expires"
+  // Require an expiry between 1 and 365 days.
   @IsInt()
   @Min(1)
+  @Max(365)
   expiresInDays: number;
 }

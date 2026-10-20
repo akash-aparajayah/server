@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export enum ProviderMode {
   LIVE = 'live',
@@ -57,6 +57,14 @@ export class Provider {
   })
   name: string;
 
+  @Prop({
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+  })
+  providerCode: string;
+
   @Prop({ type: String, trim: true })
   phone?: string;
 
@@ -79,6 +87,17 @@ export class Provider {
 
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  createdBy: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  updatedBy: Types.ObjectId;
+
+  // Managed automatically by `timestamps: true`.
+  // Declared (without @Prop) only so TypeScript knows about them.
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export type ProviderDocument = HydratedDocument<Provider>;

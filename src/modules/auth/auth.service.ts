@@ -22,18 +22,28 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const user = await this.users.create({ ...dto, role: Role.ADMIN });
-    return this.issueTokens(user._id.toString(), user.email, user.role);
+    const user = await this.users.create({ ...dto, role: Role.USER });
+    return this.issueTokens(
+      user._id.toString(),
+      user.email,
+      user.role,
+      user.name,
+    );
   }
 
   async login(dto: LoginDto) {
     const user = await this.users.findByEmail(dto.email);
-    const valid = user && (await bcrypt.compare(dto.password, user.password));
+    const valid =
+      user &&
+      user.isActive &&
+      (await bcrypt.compare(dto.password, user.password));
+
     if (!valid) throw new UnauthorizedException('Invalid credentials');
     const token = await this.issueTokens(
       user._id.toString(),
       user.email,
       user.role,
+      user.name,
     );
     let userData = {
       user_name: user._id.toString(),
@@ -56,13 +66,20 @@ export class AuthService {
 
     const user = await this.users.findByIdWithRefresh(payload.sub);
     if (
-      !user?.refreshTokenHash ||
+      !user ||
+      !user.isActive ||
+      !user.refreshTokenHash ||
       sha256(refreshToken) !== user.refreshTokenHash
     ) {
       throw new ForbiddenException('Access denied');
     }
 
-    return this.issueTokens(user._id.toString(), user.email, user.role);
+    return this.issueTokens(
+      user._id.toString(),
+      user.email,
+      user.role,
+      user.name,
+    );
   }
 
   async logout(userId: string) {
@@ -70,11 +87,22 @@ export class AuthService {
     return { success: true };
   }
 
-  private async issueTokens(id: string, email: string, role: string) {
-    const payload = { sub: id, email, role };
+  private async issueTokens(
+    id: string,
+    email: string,
+    role: string,
+    name: string,
+  ) {
+    const payload = {
+      sub: id,
+      email,
+      role,
+      name,
+    };
 
     const [access_token, refresh_token] = await Promise.all([
       this.jwt.signAsync(payload),
+
       this.jwt.signAsync({ ...payload, jti: randomUUID() }, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
         expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN') ?? '7d',
@@ -82,6 +110,7 @@ export class AuthService {
     ]);
 
     await this.users.setRefreshToken(id, refresh_token);
+
     return { access_token, refresh_token };
   }
 }

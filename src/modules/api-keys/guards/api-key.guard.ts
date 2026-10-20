@@ -18,14 +18,22 @@ export class ApiKeyGuard implements CanActivate {
       .getRequest<Request & { apiKey?: ApiKeyContext }>();
 
     const rawKey = req.headers['x-api-key'];
-    if (typeof rawKey !== 'string' || !rawKey) {
-      throw new UnauthorizedException('API key missing');
+
+    if (
+      typeof rawKey !== 'string' ||
+      rawKey.length === 0 ||
+      rawKey !== rawKey.trim()
+    ) {
+      throw new UnauthorizedException('Valid API key required');
     }
 
     const result = await this.apiKeys.validate(rawKey);
-    if (!result) throw new UnauthorizedException('Invalid or expired API key');
 
-    req.apiKey = result; // { keyId, subEntityId, type }
+    if (!result) {
+      throw new UnauthorizedException('Invalid or expired API key');
+    }
+
+    req.apiKey = result;
     return true;
   }
 }

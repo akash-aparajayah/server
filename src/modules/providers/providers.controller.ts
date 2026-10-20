@@ -22,38 +22,48 @@ import { CreateProviderCredentialsDto } from './dto/create-provider-credentials.
 import { UpdateProviderCredentialsDto } from './dto/update-provider-credentials.dto.js';
 
 import type {
-  CredentialSetView,
+  CredentialSetDetailView,
   DeleteResponse,
+  ProviderListView,
   ProviderView,
 } from './interfaces/provider.interface.js';
 
 import { logoUploadOptions } from '../../common/utils/logo-upload.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @Controller('providers')
 export class ProvidersController {
   constructor(private readonly providersService: ProvidersService) {}
 
-  // POST /providers
+  // POST /providers/create-providers
   @ResponseMessage('Provider created successfully')
   @Post('create-providers')
   @UseInterceptors(FileInterceptor('logo', logoUploadOptions))
   async createProvider(
     @Body() dto: CreateProviderDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: { sub: string },
   ): Promise<ProviderView> {
-    return this.providersService.createProvider(dto, file);
+    return this.providersService.createProvider(dto, file, user.sub);
   }
 
-  // GET /providers
+  // GET /providers/get-all-providers
   @ResponseMessage('Providers fetched successfully')
   @Get('get-all-providers')
-  async findAll(): Promise<ProviderView[]> {
+  async findAll(): Promise<ProviderListView[]> {
     return this.providersService.findAll();
   }
 
-  // GET /providers/:id
+   // GET /providers/get-all-providers-list
+  @ResponseMessage('Providers List fetched successfully')
+  @Get('get-all-providers-list')
+  async findProviderList(): Promise<any[]> {
+    return this.providersService.findProviderList();
+  }
+
+  // GET /providers/:id/get-providers
   @ResponseMessage('Provider fetched successfully')
   @Get(':id/get-providers')
   async findById(
@@ -62,19 +72,20 @@ export class ProvidersController {
     return this.providersService.findById(id);
   }
 
-  // PATCH /providers/:id
+  // PATCH /providers/:id/update-providers
   @ResponseMessage('Provider updated successfully')
   @Patch(':id/update-providers')
   @UseInterceptors(FileInterceptor('logo', logoUploadOptions))
   async updateProvider(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateProviderDto,
+    @CurrentUser() user: { sub: string },
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<ProviderView> {
-    return this.providersService.updateProvider(id, dto, file);
+    return this.providersService.updateProvider(id, dto, user.sub, file);
   }
 
-  // DELETE /providers/:id
+  // DELETE /providers/:id/delete-providers
   @ResponseMessage('Provider deleted successfully')
   @Delete(':id/delete-providers')
   async removeProvider(
@@ -83,7 +94,7 @@ export class ProvidersController {
     return this.providersService.removeProvider(id);
   }
 
-  // GET /providers/:id/credentials/:mode
+  // GET /providers/:id/credentials/:mode/update-provider-credential
   // Returns credential metadata and secret-presence flags only.
   @ResponseMessage('Credentials fetched successfully')
   @Get(':id/credentials/:mode/update-provider-credential')
@@ -91,7 +102,7 @@ export class ProvidersController {
     @Param('id', ParseObjectIdPipe) id: string,
     @Param('mode', new ParseEnumPipe(ProviderMode))
     mode: ProviderMode,
-  ): Promise<CredentialSetView> {
+  ): Promise<CredentialSetDetailView> {
     return this.providersService.findCredentials(id, mode);
   }
 
@@ -104,8 +115,9 @@ export class ProvidersController {
     @Param('mode', new ParseEnumPipe(ProviderMode))
     mode: ProviderMode,
     @Body() dto: CreateProviderCredentialsDto,
+    @CurrentUser() user: { sub: string },
   ): Promise<ProviderView> {
-    return this.providersService.addCredentials(id, mode, dto);
+    return this.providersService.addCredentials(id, mode, dto, user.sub);
   }
 
   // PATCH /providers/:id/credentials/:mode
@@ -117,8 +129,9 @@ export class ProvidersController {
     @Param('mode', new ParseEnumPipe(ProviderMode))
     mode: ProviderMode,
     @Body() dto: UpdateProviderCredentialsDto,
+    @CurrentUser() user: { sub: string },
   ): Promise<ProviderView> {
-    return this.providersService.updateCredentials(id, mode, dto);
+    return this.providersService.updateCredentials(id, mode, dto, user.sub);
   }
 
   // DELETE /providers/:id/credentials/:mode
@@ -129,7 +142,10 @@ export class ProvidersController {
     @Param('id', ParseObjectIdPipe) id: string,
     @Param('mode', new ParseEnumPipe(ProviderMode))
     mode: ProviderMode,
+    @CurrentUser() user: { sub: string },
   ): Promise<DeleteResponse> {
-    return this.providersService.removeCredentials(id, mode);
+    return this.providersService.removeCredentials(id, mode, user.sub);
   }
+
+
 }

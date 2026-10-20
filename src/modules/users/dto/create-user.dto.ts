@@ -22,7 +22,4 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(Role)
   role?: Role;
-
-  @IsString()
-  refreshTokenHash?: string;
 }
