@@ -21,6 +21,7 @@ import { ProductEngineConfigsModule } from './modules/product-engine-configs/pro
 import { ProvidersModule } from './modules/providers/providers.module.js';
 import { SignalsModule } from './modules/signals/signals.module.js';
 import { SubEntityProductsModule } from './modules/sub-entity-products/sub-entity-products.module.js';
+import { SettingsModule } from './modules/settings/settings.module.js';
 
 @Module({
   imports: [
@@ -56,7 +57,8 @@ import { SubEntityProductsModule } from './modules/sub-entity-products/sub-entit
     ProductEngineConfigsModule,
     ProvidersModule,
     SignalsModule,
-    SubEntityProductsModule
+    SubEntityProductsModule,
+    SettingsModule,
   ],
 
   controllers: [AppController],
