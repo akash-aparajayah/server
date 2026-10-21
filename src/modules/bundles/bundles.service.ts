@@ -176,7 +176,7 @@ export class BundlesService {
         //   model: 'User',
         // })
         .select(
-          '_id name ppricingType price discountValue sellingPrice status createdAt',
+          '_id name pricingType price discountValue sellingPrice status createdAt',
         )
         .sort({ createdAt: -1 })
         .skip(skip)
