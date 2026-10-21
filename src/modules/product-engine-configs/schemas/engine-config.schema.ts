@@ -54,9 +54,6 @@ export class EngineConfig {
   @Prop({ type: String, required: true, trim: true, index: true })
   providerId: string; // e.g. PROV_ID0000001
 
-  @Prop({ type: String, required: true, trim: true, index: true })
-  offerType: string; // e.g. Quick Loans
-
   @Prop({ type: String, required: true, trim: true })
   name: string;
 

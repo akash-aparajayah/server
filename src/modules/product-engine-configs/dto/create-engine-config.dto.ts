@@ -20,9 +20,9 @@ import { WeightType } from '../schemas/engine-config.schema.js';
 const toList = ({ value }: { value: unknown }) =>
   typeof value === 'string'
     ? value
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
     : value;
 
 export class SignalMatchDto {
@@ -89,7 +89,6 @@ export class ThresholdsDto {
 
 export class CreateEngineConfigDto {
   @IsString() @IsNotEmpty() providerId: string;
-  @IsString() @IsNotEmpty() offerType: string;
   @IsString() @IsNotEmpty() @MaxLength(100) name: string;
   @IsOptional() @IsString() @MaxLength(100) category?: string;
   @IsOptional() @IsNumber() baseScore?: number;

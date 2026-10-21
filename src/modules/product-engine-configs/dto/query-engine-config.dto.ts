@@ -16,5 +16,4 @@ export class QueryEngineConfigDto {
   @IsOptional() @IsString() search?: string;
   @IsOptional() @IsBoolean() status?: Boolean;
   @IsOptional() @IsString() providerId?: string;
-  @IsOptional() @IsString() offerType?: string;
 }

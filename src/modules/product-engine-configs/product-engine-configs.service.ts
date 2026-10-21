@@ -55,7 +55,7 @@ export class ProductEngineConfigsService {
   constructor(
     @InjectModel(EngineConfig.name)
     private readonly model: Model<EngineConfigDocument>,
-  ) {}
+  ) { }
 
   // ---------- Helpers ----------
 
@@ -185,10 +185,6 @@ export class ProductEngineConfigsService {
       filter.providerId = query.providerId;
     }
 
-    if (query.offerType) {
-      filter.offerType = query.offerType;
-    }
-
     // Search configuration name, provider ID, and offer type
     const search = query.search?.trim();
 
@@ -203,12 +199,6 @@ export class ProductEngineConfigsService {
             $options: 'i',
           },
         },
-        {
-          offerType: {
-            $regex: safeSearch,
-            $options: 'i',
-          },
-        },
       ];
     }
 
@@ -219,7 +209,7 @@ export class ProductEngineConfigsService {
       this.model
         .find(filter)
         .select(
-          '_id name providerId offerType category baseScore status createdAt',
+          '_id name providerId category baseScore status createdAt',
         )
         .sort({ _createdAt: -1 })
         .skip(skip)
