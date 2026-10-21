@@ -20,6 +20,7 @@ import { MarginsModule } from './modules/margins/margins.module.js';
 import { ProductEngineConfigsModule } from './modules/product-engine-configs/product-engine-configs.module.js';
 import { ProvidersModule } from './modules/providers/providers.module.js';
 import { SignalsModule } from './modules/signals/signals.module.js';
+import { SubEntityProductsModule } from './modules/sub-entity-products/sub-entity-products.module.js';
 
 @Module({
   imports: [
@@ -54,7 +55,8 @@ import { SignalsModule } from './modules/signals/signals.module.js';
     MarginsModule,
     ProductEngineConfigsModule,
     ProvidersModule,
-    SignalsModule
+    SignalsModule,
+    SubEntityProductsModule
   ],
 
   controllers: [AppController],

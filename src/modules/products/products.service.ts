@@ -561,4 +561,24 @@ export class ProductsService {
       deleted: true,
     };
   }
+
+  async findByIds(ids: string[]) {
+    return this.productModel
+      .find({ _id: { $in: ids } })
+      .select('_id')
+      .exec();
+  }
+
+  async findAllForPicker() {
+    return this.productModel
+      .find()
+      .select('name category retailPrice status')
+      .populate('category', 'name')
+      .sort({ name: 1 })
+      .exec();
+  }
+
+  count() {
+    return this.productModel.countDocuments().exec();
+  }
 }
