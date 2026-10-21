@@ -59,7 +59,12 @@ export const DashboardContentSchema =
 @Schema({ timestamps: true })
 export class Product {
   // Step 1: Overview
-  @Prop({ required: true, unique: true, trim: true })
+  @Prop({
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+  })
   name: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Category', required: true, index: true })

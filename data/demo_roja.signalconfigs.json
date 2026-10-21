@@ -1,0 +1,909 @@
+[{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f67e"
+  },
+  "signalid": "pharmacy",
+  "label": "Pharmacy",
+  "match": {
+    "code": [
+      "PHM",
+      " RX"
+    ],
+    "mcc": [
+      "5912"
+    ],
+    "keywords": [
+      "pharmacy",
+      " cvs",
+      " walgreens",
+      " rite aid",
+      " optumrx",
+      " goodrx"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f68e"
+  },
+  "signalid": "payday",
+  "label": "Payday loan",
+  "match": {
+    "keywords": [
+      "advance america",
+      " check into cash",
+      " moneytree",
+      " payday",
+      " cash advance",
+      " speedy cash"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f677"
+  },
+  "signalid": "pet_sub",
+  "label": "Pet subscription",
+  "match": {
+    "keywords": [
+      "chewy",
+      " barkbox",
+      " rover",
+      " wag"
+    ],
+    "flags": "subscription"
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f678"
+  },
+  "signalid": "fuel_scaled",
+  "label": "Fuel spend (scaled)",
+  "match": {
+    "topcat": [],
+    "code": [],
+    "mcc": [],
+    "keywords": [],
+    "same_as": "fuel"
+  },
+  "weight": {
+    "type": "saturating",
+    "value": 1,
+    "cap": 0.3,
+    "divisor": 500
+  },
+  "min_count": 1,
+  "updatedAt": {
+    "$date": "2026-07-31T11:20:05.146Z"
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f680"
+  },
+  "signalid": "urgent_er",
+  "label": "Urgent care / ER",
+  "match": {
+    "mcc": [
+      "8071"
+    ],
+    "keywords": [
+      "urgent care",
+      " emergency room",
+      " hospital",
+      " er visit"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f68d"
+  },
+  "signalid": "overdraft_fees",
+  "label": "Overdraft / fees",
+  "match": {
+    "flags": [
+      "overdraft"
+    ],
+    "keywords": [
+      "overdraft",
+      " nsf"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 0.1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f679"
+  },
+  "signalid": "repair",
+  "label": "Auto service/repair",
+  "match": {
+    "topcat": [],
+    "code": [
+      "SNP"
+    ],
+    "mcc": [
+      "7538",
+      "7549"
+    ],
+    "keywords": [
+      "auto repair",
+      "mechanic",
+      "tire",
+      "jiffy lube",
+      "autozone",
+      "o'reilly",
+      "service & parts",
+      "auto parts"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 0.3
+  },
+  "min_count": 1,
+  "updatedAt": {
+    "$date": "2026-07-31T10:47:29.242Z"
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f687"
+  },
+  "signalid": "business_in",
+  "label": "Business income (gig/payment)",
+  "match": {
+    "keywords": [
+      "stripe",
+      " square",
+      " paypal",
+      " gusto",
+      " venmo business",
+      " upwork",
+      " fiverr",
+      " doordash",
+      " uber",
+      " lyft",
+      " instacart"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f689"
+  },
+  "signalid": "attorney",
+  "label": "Attorney / legal",
+  "match": {
+    "keywords": [
+      "law offices",
+      " legalzoom",
+      " attorney",
+      " esquire",
+      " law firm"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f676"
+  },
+  "signalid": "vet",
+  "label": "Vet visit",
+  "match": {
+    "mcc": [
+      "0742"
+    ],
+    "keywords": [
+      "vet",
+      " animal hospital",
+      " animal clinic",
+      " veterin"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f67d"
+  },
+  "signalid": "roadside",
+  "label": "Roadside assistance",
+  "match": {
+    "topcat": [],
+    "code": [],
+    "mcc": [],
+    "keywords": [
+      "aaa",
+      "roadside",
+      "urgent.ly",
+      "allstate roadside"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "min_count": 2,
+  "updatedAt": {
+    "$date": "2026-07-30T05:30:20.350Z"
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f681"
+  },
+  "signalid": "labs",
+  "label": "Labs / imaging",
+  "match": {
+    "keywords": [
+      "labcorp",
+      " quest diag",
+      " directlabs",
+      " imaging",
+      " radiolog",
+      " mri"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f68c"
+  },
+  "signalid": "balance_strain",
+  "label": "Low balance / budget strain",
+  "match": {
+    "context_field": "min_bal"
+  },
+  "weight": {
+    "type": "balance_strain",
+    "reference": 300,
+    "cap": 0.25,
+    "multiplier": 0.28,
+    "trigger_above": 0.4
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f67b"
+  },
+  "signalid": "auto_any",
+  "label": "Auto & transport (any)",
+  "match": {
+    "topcat": [
+      "Auto & Transport"
+    ],
+    "code": [
+      "GAS",
+      " SNP",
+      " APY",
+      " PRK"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f67c"
+  },
+  "signalid": "travel",
+  "label": "Travel / rentals",
+  "match": {
+    "topcat": [
+      "Travel"
+    ],
+    "code": [
+      "HTL"
+    ],
+    "mcc": [],
+    "keywords": [
+      "marriott",
+      "hilton",
+      "holiday inn",
+      "airbnb",
+      "motel",
+      "hotel",
+      "avis",
+      "budget rent",
+      "enterprise rent"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 0.1
+  },
+  "min_count": 2,
+  "updatedAt": {
+    "$date": "2026-07-31T10:51:11.063Z"
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f686"
+  },
+  "signalid": "business_svc",
+  "label": "Business services",
+  "match": {
+    "topcat": [
+      "Business Services"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f67f"
+  },
+  "signalid": "doctor",
+  "label": "Doctor / medical",
+  "match": {
+    "topcat": [
+      "Health & Fitness",
+      " Medical",
+      " Health"
+    ],
+    "mcc": [
+      "8011",
+      " 8062",
+      " 8099"
+    ],
+    "keywords": [
+      "dental",
+      " dentist",
+      " physician",
+      " medical center",
+      " optometr",
+      " urgent care",
+      " hospital",
+      " doctor"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f685"
+  },
+  "signalid": "tax",
+  "label": "Tax prep / filing",
+  "match": {
+    "topcat": [
+      "Taxes"
+    ],
+    "code": [
+      "TAX"
+    ],
+    "keywords": [
+      "turbotax",
+      " h&r block",
+      " hr block",
+      " taxact",
+      " irs",
+      " franchise tax",
+      " tax prep"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f67a"
+  },
+  "signalid": "auto_ins",
+  "label": "Auto insurance",
+  "match": {
+    "topcat": [],
+    "code": [],
+    "mcc": [],
+    "keywords": [
+      "geico",
+      "progressive",
+      "state farm",
+      "allstate",
+      "auto insurance",
+      "farmers ins",
+      "liberty mutual"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 0.15
+  },
+  "min_count": 1,
+  "updatedAt": {
+    "$date": "2026-07-31T10:48:51.500Z"
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f68b"
+  },
+  "signalid": "discount_retail",
+  "label": "Discount retail",
+  "match": {
+    "mcc": [
+      "5300",
+      " 5311",
+      " 5411"
+    ],
+    "keywords": [
+      "walmart",
+      " dollar general",
+      " dollar tree",
+      " aldi",
+      " big lots",
+      " family dollar"
+    ]
+  },
+  "weight": {
+    "type": "ratio_of_spend",
+    "cap": 0.3,
+    "multiplier": 1.2
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f683"
+  },
+  "signalid": "dependents",
+  "label": "Dependent care",
+  "match": {
+    "keywords": [
+      "kindercare",
+      " daycare",
+      " childcare",
+      " pediatric",
+      " school tuition",
+      " children's"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f68f"
+  },
+  "signalid": "fee",
+  "label": "Fees & charges",
+  "match": {
+    "topcat": [
+      "Fees & Charges"
+    ],
+    "code": [
+      "BFE",
+      " ATM"
+    ],
+    "mcc": [],
+    "keywords": [
+      "fee",
+      " atm withdrawal"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "min_count": null,
+  "modifiedBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "updatedAt": {
+    "$date": "2026-08-03T13:24:03.880Z"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c7eb6be8929cb15800f9d"
+  },
+  "signalid": "existing_roadside",
+  "label": "Existing roadside membership",
+  "evidence": true,
+  "min_count": null,
+  "match": {
+    "topcat": [],
+    "code": [],
+    "mcc": [],
+    "keywords": [
+      "aaa",
+      "roadside",
+      "urgent.ly",
+      "allstate roadside"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 0.15
+  },
+  "status": "Active",
+  "createdAt": {
+    "$date": "2026-07-31T10:53:42.866Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-03T12:56:57.337Z"
+  },
+  "__v": 0,
+  "modifiedBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c77b4df6e98150984c9ad"
+  },
+  "signalid": "fuel",
+  "label": "Fuel spend",
+  "evidence": true,
+  "min_count": 1,
+  "match": {
+    "topcat": [],
+    "code": [
+      "GAS"
+    ],
+    "mcc": [
+      "5541",
+      "5542"
+    ],
+    "keywords": [
+      "shell",
+      "chevron",
+      "gas station",
+      "fuel",
+      "bp",
+      "arco",
+      "mobil",
+      "exxon"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 0.15
+  },
+  "status": "Active",
+  "createdAt": {
+    "$date": "2026-07-31T10:23:48.455Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T11:18:31.322Z"
+  },
+  "__v": 0,
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f675"
+  },
+  "signalid": "pet",
+  "label": "Pet spend",
+  "match": {
+    "topcat": [
+      "Pets"
+    ],
+    "code": [
+      "PFS"
+    ],
+    "mcc": [
+      "5995",
+      " 0742"
+    ],
+    "keywords": [
+      "petsmart",
+      " petco",
+      " chewy",
+      " barkbox",
+      " rover",
+      " wag",
+      " pet",
+      " veterin"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f684"
+  },
+  "signalid": "health_prem",
+  "label": "Health insurance premium",
+  "match": {
+    "keywords": [
+      "health premium",
+      " medical premium",
+      " bcbs premium",
+      " aetna premium",
+      " cigna premium"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f68a"
+  },
+  "signalid": "invest",
+  "label": "Investing",
+  "match": {
+    "topcat": [
+      "Investments"
+    ],
+    "code": [
+      "INV"
+    ],
+    "keywords": [
+      "vanguard",
+      " fidelity",
+      " robinhood",
+      " schwab",
+      " e*trade",
+      " coinbase",
+      " betterment"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f682"
+  },
+  "signalid": "therapy",
+  "label": "Therapy / mental health",
+  "match": {
+    "keywords": [
+      "betterhelp",
+      " talkspace",
+      " cerebral",
+      " therapy",
+      " counseling",
+      " psych"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a69efab23314e62cfe0f688"
+  },
+  "signalid": "rental_in",
+  "label": "Rental income",
+  "match": {
+    "keywords": [
+      "rental income",
+      " tenant",
+      " lease payment"
+    ]
+  },
+  "weight": {
+    "type": "flat",
+    "value": 1
+  },
+  "createdBy": {
+    "$oid": "61efce935f2e3c054819a02f"
+  },
+  "createdAt": {
+    "$date": "2026-08-04T04:55:50.760Z"
+  }
+}]

@@ -2,25 +2,19 @@ import 'dotenv/config';
 
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-
-declare const process: {
-  env: Record<string, string | undefined>;
-  exitCode?: number;
-};
-
 import { Role } from '../src/common/enums/role.enum.js';
 
-console.log('[SEED] Script file loaded');
-
-async function seedAdmin(): Promise<void> {
+export async function seedAdmin(): Promise<void> {
   try {
     console.log('[SEED] Starting admin seeder...');
 
+    // 1. Read environment variables
     const uri = process.env.MONGODB_URI;
     const name = process.env.ADMIN_NAME?.trim();
     const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
     const password = process.env.ADMIN_PASSWORD;
 
+    // 2. Validate environment variables
     if (!uri) {
       throw new Error('MONGODB_URI is missing from .env');
     }
@@ -35,17 +29,19 @@ async function seedAdmin(): Promise<void> {
       throw new Error('ADMIN_PASSWORD must contain at least 12 characters');
     }
 
+    // 3. Connect to MongoDB
     await mongoose.connect(uri);
-    console.log('[SEED] MongoDB connected');
+    console.log('[SEED] MongoDB connected successfully');
 
-    // Use the existing MongoDB "users" collection.
+    // 4. Access the users collection
     const users = mongoose.connection.collection('users');
 
+    // 5. Check whether the admin already exists
     const existingUser = await users.findOne({ email });
 
     if (existingUser) {
       if (existingUser.role === Role.ADMIN) {
-        console.log('[SEED] Admin already exists; no changes made.');
+        console.log('[SEED] Admin already exists; skipping creation.');
         return;
       }
 
@@ -54,8 +50,10 @@ async function seedAdmin(): Promise<void> {
       );
     }
 
+    // 6. Hash the admin password
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // 7. Insert the admin user
     await users.insertOne({
       name,
       email,
@@ -70,17 +68,17 @@ async function seedAdmin(): Promise<void> {
     console.log(`[SEED] Email: ${email}`);
   } catch (error: unknown) {
     console.error(
-      '[SEED] Failed:',
+      '[SEED] Admin seeder failed:',
       error instanceof Error ? (error.stack ?? error.message) : error,
     );
 
-    process.exitCode = 1;
+    // Let the master seeder detect the failure
+    throw error;
   } finally {
+    // 8. Close the MongoDB connection
     if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();
       console.log('[SEED] MongoDB disconnected');
     }
   }
 }
-
-void seedAdmin();

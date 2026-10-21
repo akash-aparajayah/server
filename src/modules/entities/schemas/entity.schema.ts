@@ -5,27 +5,49 @@ export type EntityDocument = HydratedDocument<Entity>;
 
 @Schema({ timestamps: true })
 export class Entity {
-  @Prop({ required: true, trim: true })
+  @Prop({
+    type: String,
+    required: true,
+    trim: true,
+  })
   name: string;
 
-  @Prop({ trim: true })
+  @Prop({
+    type: String,
+    trim: true,
+  })
   imageUrl?: string;
 
-  @Prop({ trim: true })
+  @Prop({
+    type: String,
+    trim: true,
+  })
   description?: string;
 
-  @Prop({ default: true })
+  @Prop({
+    type: Boolean,
+    default: true,
+  })
   isActive: boolean;
 
-  // owner
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
+  // Owner
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+    index: true,
+  })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   updatedBy: Types.ObjectId;
 }
 
 export const EntitySchema = SchemaFactory.createForClass(Entity);
 
-// same user ku same name 2 entity vendaam
+// Prevent the same user from creating duplicate entity names.
 EntitySchema.index({ createdBy: 1, name: 1 }, { unique: true });

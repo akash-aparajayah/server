@@ -10,26 +10,58 @@ export enum MarkupType {
 
 @Schema({ timestamps: true })
 export class Margin {
-  // Product module vandha aprom populate pannalam
-  @Prop({ type: Types.ObjectId, ref: 'Product', required: true, unique: true })
+  // Product reference
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Product',
+    required: true,
+    unique: true,
+  })
   product: Types.ObjectId;
 
-  // inputs
-  @Prop({ required: true, min: 0 }) wholesalePrice: number;
-  @Prop({ required: true, min: 0 }) retailPrice: number;
-  @Prop({ type: String, enum: MarkupType, required: true })
+  // Input fields
+  @Prop({ type: Number, required: true, min: 0 })
+  wholesalePrice: number;
+
+  @Prop({ type: Number, required: true, min: 0 })
+  retailPrice: number;
+
+  @Prop({
+    type: String,
+    enum: MarkupType,
+    required: true,
+  })
   markupType: MarkupType;
-  @Prop({ required: true, min: 0 }) markupValue: number;
 
-  // calculated (service la set aagum, client anuppa koodathu)
-  @Prop({ required: true }) markupAmount: number; // Roja Markup ($)
-  @Prop({ required: true }) markupPercent: number; // Roja Markup (%)
-  @Prop({ required: true }) buyRate: number; // Roja Buy value
-  @Prop({ required: true }) marginVsRetail: number; // negative aagalam
+  @Prop({ type: Number, required: true, min: 0 })
+  markupValue: number;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  // Calculated fields
+  @Prop({ type: Number, required: true })
+  markupAmount: number;
+
+  @Prop({ type: Number, required: true })
+  markupPercent: number;
+
+  @Prop({ type: Number, required: true })
+  buyRate: number;
+
+  @Prop({ type: Number, required: true })
+  marginVsRetail: number;
+
+  // Audit fields
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   createdBy: Types.ObjectId;
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   updatedBy: Types.ObjectId;
 }
 

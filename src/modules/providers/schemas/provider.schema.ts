@@ -42,8 +42,7 @@ export const CredentialSetSchema = SchemaFactory.createForClass(CredentialSet);
 @Schema({
   timestamps: true,
   toJSON: {
-    transform: (_doc, ret: any) => {
-      // cast ret to any to avoid TS errors when properties are not present on the inferred type
+    transform: (_doc, ret: Record<string, any>) => {
       delete ret.credentials;
       return ret;
     },
@@ -51,6 +50,7 @@ export const CredentialSetSchema = SchemaFactory.createForClass(CredentialSet);
 })
 export class Provider {
   @Prop({
+    type: String,
     required: true,
     unique: true,
     trim: true,
@@ -88,14 +88,20 @@ export class Provider {
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   updatedBy: Types.ObjectId;
 
-  // Managed automatically by `timestamps: true`.
-  // Declared (without @Prop) only so TypeScript knows about them.
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -5,10 +5,16 @@ export type CategoryDocument = HydratedDocument<Category>;
 
 @Schema({ timestamps: true })
 export class Category {
-  @Prop({ required: true, unique: true, trim: true })
+  @Prop({
+    type: String,
+    required: true,
+    trim: true,
+    unique: true,
+  })
   name: string;
 
   @Prop({
+    type: String,
     required: true,
     unique: true,
     lowercase: true,
@@ -16,14 +22,25 @@ export class Category {
   })
   slug: string;
 
-  @Prop({ trim: true })
+  @Prop({
+    type: String,
+    trim: true,
+    default: null,
+  })
   backgroundColor?: string;
 
-  @Prop({ trim: true })
+  @Prop({
+    type: String,
+    trim: true,
+    default: null,
+  })
   description?: string;
 
   // Active categories use true; soft-deleted categories use false
-  @Prop({ type: Boolean, default: true })
+  @Prop({
+    type: Boolean,
+    default: true,
+  })
   status: boolean;
 
   @Prop({

@@ -5,30 +5,56 @@ export type SubEntityDocument = HydratedDocument<SubEntity>;
 
 @Schema({ timestamps: true })
 export class SubEntity {
-  // parent entity
-  @Prop({ type: Types.ObjectId, ref: 'Entity', required: true, index: true })
+  // Parent entity
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Entity',
+    required: true,
+    index: true,
+  })
   entity: Types.ObjectId;
 
-  @Prop({ required: true, trim: true })
+  @Prop({
+    type: String,
+    required: true,
+    trim: true,
+  })
   name: string;
 
-  @Prop({ trim: true })
+  @Prop({
+    type: String,
+    trim: true,
+  })
   imageUrl?: string;
 
-  @Prop({ trim: true })
+  @Prop({
+    type: String,
+    trim: true,
+  })
   description?: string;
 
-  @Prop({ default: true })
+  @Prop({
+    type: Boolean,
+    default: true,
+  })
   isActive: boolean;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
   updatedBy: Types.ObjectId;
 }
 
 export const SubEntitySchema = SchemaFactory.createForClass(SubEntity);
 
-// same entity la same name 2 sub entity vendaam
+// Prevent duplicate sub-entity names under the same entity.
 SubEntitySchema.index({ entity: 1, name: 1 }, { unique: true });
