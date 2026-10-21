@@ -6,17 +6,19 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { SubEntitiesService } from './sub-entities.service.js';
 import { CreateSubEntityDto } from './dto/create-sub-entity.dto.js';
 import { UpdateSubEntityDto } from './dto/update-sub-entity.dto.js';
+import { SaveSubEntityProductsDto } from './dto/save-sub-entity-products.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 
 @Controller('sub-entities')
 export class SubEntitiesController {
-  constructor(private readonly subEntitiesService: SubEntitiesService) {}
+  constructor(private readonly subEntitiesService: SubEntitiesService) { }
 
   // :entityId = parent entity id
   @ResponseMessage('Sub entity created successfully')
@@ -66,6 +68,19 @@ export class SubEntitiesController {
     @CurrentUser() user: any,
   ) {
     return this.subEntitiesService.update(id, dto, {
+      sub: user.sub,
+      role: user.role,
+    });
+  }
+
+  @ResponseMessage('Sub entity products saved successfully')
+  @Put(':id/save-products')
+  saveProducts(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SaveSubEntityProductsDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.subEntitiesService.saveProducts(id, dto.productIds, {
       sub: user.sub,
       role: user.role,
     });

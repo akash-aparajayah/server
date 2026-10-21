@@ -39,6 +39,10 @@ export class SubEntity {
   })
   isActive: boolean;
 
+  // Products selected for this environment
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Product' }], default: [] })
+  products: Types.ObjectId[];
+
   @Prop({
     type: Types.ObjectId,
     ref: 'User',

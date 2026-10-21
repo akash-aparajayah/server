@@ -4,6 +4,7 @@ export const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP'] as const;
 export const DATE_FORMATS = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'] as const;
 export const TIME_ZONES = [
   'Asia/Kolkata',
+  'Asia/Dubai',
   'America/New_York',
   'Europe/London',
   'UTC',

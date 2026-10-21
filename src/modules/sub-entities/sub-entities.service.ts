@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { SubEntity, SubEntityDocument } from './schemas/sub-entity.schema.js';
 import { CreateSubEntityDto } from './dto/create-sub-entity.dto.js';
 import { UpdateSubEntityDto } from './dto/update-sub-entity.dto.js';
@@ -17,7 +17,7 @@ export class SubEntitiesService {
     @InjectModel(SubEntity.name)
     private subEntityModel: Model<SubEntityDocument>,
     private readonly entities: EntitiesService,
-  ) {}
+  ) { }
 
   async create(entityId: string, dto: CreateSubEntityDto, user: AuthUser) {
     await this.entities.findOne(entityId, user); // parent owner check (404 / 403)
@@ -64,6 +64,14 @@ export class SubEntitiesService {
         );
       throw e;
     }
+  }
+
+  // replaces the environment's product list (empty array clears it)
+  async saveProducts(id: string, productIds: string[], user: AuthUser) {
+    const sub = await this.findOne(id, user); // owner check
+    const unique = [...new Set(productIds)].map((p) => new Types.ObjectId(p));
+    Object.assign(sub, { products: unique, updatedBy: user.sub });
+    return sub.save();
   }
 
   async remove(id: string, user: AuthUser) {
