@@ -28,7 +28,7 @@ export class EntitiesService {
 
   // ApiKeysService.validate use pannum (owner check illa, key already verified)
   async findActiveById(id: string) {
-    return this.entityModel.findOne({ _id: id, isActive:true }).exec();
+    return this.entityModel.findOne({ _id: id, isActive: true }).exec();
   }
   async create(dto: CreateEntityDto, userId: string) {
     try {
@@ -46,9 +46,52 @@ export class EntitiesService {
     }
   }
 
-  findAll(user: AuthUser) {
+  async findAll(user: AuthUser) {
     const filter = user.role === Role.ADMIN ? {} : { createdBy: user.sub };
-    return this.entityModel.find(filter).sort({ createdAt: -1 }).exec();
+
+    const entities = await this.entityModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    if (entities.length === 0) {
+      return [];
+    }
+
+    const entityIds = entities.map((entity) => entity._id.toString());
+
+    // Fetch sub-entities and support existing string/ObjectId data.
+    const subEntities = await this.subEntityModel
+      .find({
+        $expr: {
+          $in: [{ $toString: '$entity' }, entityIds],
+        },
+      })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    const subEntitiesByEntity = new Map<string, typeof subEntities>();
+
+    for (const subEntity of subEntities) {
+      const entityId = String(subEntity.entity);
+
+      const existing = subEntitiesByEntity.get(entityId) ?? [];
+
+      existing.push(subEntity);
+      subEntitiesByEntity.set(entityId, existing);
+    }
+
+    return entities.map((entity) => ({
+      ...entity,
+      subEntities: (subEntitiesByEntity.get(entity._id.toString()) ?? []).map(
+        (subEntity) => ({
+          id: subEntity._id,
+          name: subEntity.name,
+        }),
+      ),
+    }));
   }
 
   // SubEntitiesService idhaiyum use pannum (owner check)
@@ -79,12 +122,12 @@ export class EntitiesService {
 
   // entity delete pannina adhoda sub entities-um delete aagum
   async remove(id: string, user: AuthUser) {
-  const entity = await this.findOne(id, user);
-  await this.subEntityModel.deleteMany({ entity: entity._id }).exec();
-  await this.apiKeyModel
-    .updateMany({ entityId: entity._id }, { isActive: false })
-    .exec();
-  await entity.deleteOne();
-  return { deleted: true };
-}
+    const entity = await this.findOne(id, user);
+    await this.subEntityModel.deleteMany({ entity: entity._id }).exec();
+    await this.apiKeyModel
+      .updateMany({ entityId: entity._id }, { isActive: false })
+      .exec();
+    await entity.deleteOne();
+    return { deleted: true };
+  }
 }
