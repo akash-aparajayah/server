@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Types, Schema as MongooseSchema } from 'mongoose';
 
 export type MarginDocument = HydratedDocument<Margin>;
 
@@ -12,7 +12,7 @@ export enum MarkupType {
 export class Margin {
   // Product reference
   @Prop({
-    type: Types.ObjectId,
+    type: MongooseSchema.Types.ObjectId,
     ref: 'Product',
     required: true,
     unique: true,
@@ -51,14 +51,14 @@ export class Margin {
 
   // Audit fields
   @Prop({
-    type: Types.ObjectId,
+    type: MongooseSchema.Types.ObjectId,
     ref: 'User',
     required: true,
   })
   createdBy: Types.ObjectId;
 
   @Prop({
-    type: Types.ObjectId,
+    type: MongooseSchema.Types.ObjectId,
     ref: 'User',
     required: true,
   })

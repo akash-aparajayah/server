@@ -14,6 +14,7 @@ import {
   ProductStatus,
   PublishMode,
   MarkupType,
+  AudienceType,
 } from './schemas/product.schema.js';
 
 import { CreateProductDto } from './dto/create-product.dto.js';
@@ -55,7 +56,7 @@ export class ProductsService {
 
     private readonly categories: CategoriesService,
     private readonly bundles: BundlesService,
-  ) {}
+  ) { }
 
   // --------------------------------------------------
   // PRICING VALIDATION
@@ -271,8 +272,11 @@ export class ProductsService {
       missing.push('marginVsRetail');
     }
 
-    // Configuration.
-    if (!product.configurationId) {
+    // Configuration: required only for Provider rules.
+    if (
+      product.audienceType === AudienceType.ProviderRules &&
+      !product.configurationId
+    ) {
       missing.push('configurationId');
     }
 

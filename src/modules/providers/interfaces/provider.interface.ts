@@ -6,8 +6,10 @@ export interface CredentialSetView {
   apiUrl?: string;
   tokenUrl?: string;
   clientId?: string;
-  hasClientSecret: boolean;
-  hasRefreshToken: boolean;
+  clientSecret?: string;
+  refreshToken?: string;
+  hasClientSecret?: boolean; // only on create/update responses
+  hasRefreshToken?: boolean; // only on create/update responses
   instanceUrl?: string;
   updatedAt?: Date;
 }

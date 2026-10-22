@@ -23,7 +23,7 @@ export class SubEntityProductsService {
     private model: Model<SubEntityProductDocument>,
     private readonly subEntities: SubEntitiesService,
     private readonly products: ProductsService,
-  ) {}
+  ) { }
 
   // marginVsRetail is calculated from the product's current retail price
   private view(doc: SubEntityProductDocument) {
@@ -33,10 +33,10 @@ export class SubEntityProductsService {
       ...obj,
       margin: obj.margin
         ? {
-            ...obj.margin,
-            marginVsRetail:
-              retail == null ? null : round2(retail - obj.margin.buyRate),
-          }
+          ...obj.margin,
+          marginVsRetail:
+            retail == null ? null : round2(retail - obj.margin.buyRate),
+        }
         : null,
     };
   }
@@ -129,6 +129,24 @@ export class SubEntityProductsService {
         path: 'product',
         select: 'name retailPrice discountType discountValue category status',
         populate: { path: 'category', select: 'name' },
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return docs.map((d) => this.view(d));
+  }
+
+  // API key requests have no logged-in user, so there is no owner check here.
+  // The key guard has already checked: key exists, active, not expired, environment active.
+  async findForApiKey(subEntityId: string) {
+    const docs = await this.model
+      .find({ subEntity: subEntityId })
+      .populate({
+        path: 'product',
+        populate: [
+          { path: 'category', select: 'name' },
+          { path: 'bundled', select: 'name shortCode' },
+        ],
       })
       .sort({ createdAt: -1 })
       .exec();

@@ -4,6 +4,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
+import { ProductTemplatesModule } from './modules/product-templates/product-templates.module.js';
+
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import databaseConfig from './config/database.config.js';
@@ -22,6 +24,7 @@ import { ProvidersModule } from './modules/providers/providers.module.js';
 import { SignalsModule } from './modules/signals/signals.module.js';
 import { SubEntityProductsModule } from './modules/sub-entity-products/sub-entity-products.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
+import { PublicApiModule } from './modules/public-api/public-api.module.js';
 
 @Module({
   imports: [
@@ -56,9 +59,11 @@ import { SettingsModule } from './modules/settings/settings.module.js';
     MarginsModule,
     ProductEngineConfigsModule,
     ProvidersModule,
+    ProductTemplatesModule,
     SignalsModule,
     SubEntityProductsModule,
     SettingsModule,
+    PublicApiModule,
   ],
 
   controllers: [AppController],
@@ -71,4 +76,4 @@ import { SettingsModule } from './modules/settings/settings.module.js';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

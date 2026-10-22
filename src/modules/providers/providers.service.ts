@@ -66,7 +66,7 @@ export class ProvidersService {
 
     @InjectModel(Counter.name)
     private readonly counterModel: Model<Counter>,
-  ) {}
+  ) { }
 
   // ---------- Helpers ----------
 
@@ -79,8 +79,8 @@ export class ProvidersService {
       .findById(id)
       .select(
         '+credentials ' +
-          '+credentials.clientSecret ' +
-          '+credentials.refreshToken',
+        '+credentials.clientSecret ' +
+        '+credentials.refreshToken',
       )
       .populate(AUDIT_POPULATE)
       .exec();
@@ -132,14 +132,21 @@ export class ProvidersService {
     return { id: String(user) };
   }
 
-  private toSetView(c: CredentialSet): CredentialSetView {
+  private toSetView(
+    c: CredentialSet,
+    withSecrets = false,
+  ): CredentialSetView {
     return {
       mode: c.mode,
       apiUrl: c.apiUrl,
       tokenUrl: c.tokenUrl,
       clientId: c.clientId,
-      hasClientSecret: Boolean(c.clientSecret),
-      hasRefreshToken: Boolean(c.refreshToken),
+      ...(withSecrets
+        ? { clientSecret: c.clientSecret, refreshToken: c.refreshToken }
+        : {
+          hasClientSecret: Boolean(c.clientSecret),
+          hasRefreshToken: Boolean(c.refreshToken),
+        }),
       instanceUrl: c.instanceUrl,
       updatedAt: c.updatedAt,
     };
@@ -159,7 +166,7 @@ export class ProvidersService {
     };
   }
 
-  private toView(doc: ProviderDocument): ProviderView {
+  private toView(doc: ProviderDocument, withSecrets = false): ProviderView {
     return {
       id: doc._id,
       providerId: doc.providerCode,
@@ -168,7 +175,7 @@ export class ProvidersService {
       email: doc.email,
       logo: doc.logo,
       credentials: (doc.credentials ?? []).map((credential) =>
-        this.toSetView(credential),
+        this.toSetView(credential, withSecrets),
       ),
       isActive: doc.isActive,
       createdAt: doc.createdAt,
@@ -263,6 +270,11 @@ export class ProvidersService {
     const logo = `${LOGO_URL_PREFIX}/${file.filename}`;
 
     try {
+      const modes = (dto.credentials ?? []).map((c) => c.mode);
+      if (new Set(modes).size !== modes.length) {
+        throw new BadRequestException('Each credentials mode can only be sent once');
+      }
+
       const providerCode = await this.generateProviderCode();
 
       const doc = await this.providerModel.create({
@@ -271,7 +283,10 @@ export class ProvidersService {
         email: dto.email,
         providerCode,
         logo,
-        credentials: [],
+        credentials: (dto.credentials ?? []).map((c) => ({
+          ...c,
+          updatedAt: new Date(),
+        })),
         isActive: true,
         createdBy: userObjectId,
         updatedBy: userObjectId,
@@ -332,7 +347,7 @@ export class ProvidersService {
 
   async findById(id: string): Promise<ProviderView> {
     const doc = await this.findWithCredentials(id);
-    return this.toView(doc);
+    return this.toView(doc, true);
   }
 
   async updateProvider(
@@ -549,8 +564,8 @@ export class ProvidersService {
       .findById(id)
       .select(
         '+credentials ' +
-          '+credentials.clientSecret ' +
-          '+credentials.refreshToken',
+        '+credentials.clientSecret ' +
+        '+credentials.refreshToken',
       )
       .exec();
 
