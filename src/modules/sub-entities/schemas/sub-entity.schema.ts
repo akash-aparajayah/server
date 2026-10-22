@@ -43,6 +43,10 @@ export class SubEntity {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Product' }], default: [] })
   products: Types.ObjectId[];
 
+  // Providers this environment can use (empty on older environments)
+  @Prop({ type: [String], default: [] })
+  providerIds: string[];
+
   @Prop({
     type: Types.ObjectId,
     ref: 'User',

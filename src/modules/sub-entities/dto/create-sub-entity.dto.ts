@@ -1,4 +1,8 @@
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsMongoId,
   IsBoolean,
   IsEnum,
   IsNotEmpty,
@@ -26,4 +30,10 @@ export class CreateSubEntityDto {
   @IsOptional()
   @IsBoolean()
   isActive: boolean;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsMongoId({ each: true })
+  providerIds: string[];
 }
