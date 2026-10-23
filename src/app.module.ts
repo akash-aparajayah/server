@@ -25,6 +25,8 @@ import { SignalsModule } from './modules/signals/signals.module.js';
 import { SubEntityProductsModule } from './modules/sub-entity-products/sub-entity-products.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { PublicApiModule } from './modules/public-api/public-api.module.js';
+import { StripeModule } from './modules/stripe/stripe.module.js';
+import { HistoryModule } from './modules/history/history.module.js';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { PublicApiModule } from './modules/public-api/public-api.module.js';
     SubEntityProductsModule,
     SettingsModule,
     PublicApiModule,
+    StripeModule,
+    HistoryModule,
   ],
 
   controllers: [AppController],

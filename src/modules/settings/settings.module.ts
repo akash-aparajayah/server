@@ -22,5 +22,6 @@ import {
   ],
   controllers: [SettingsController],
   providers: [SettingsService],
+  exports: [SettingsService],
 })
-export class SettingsModule {}
+export class SettingsModule { }

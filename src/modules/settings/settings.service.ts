@@ -24,7 +24,7 @@ import {
   UpdateProfileDto,
 } from './dto/settings.dto.js';
 import { COLUMN_REGISTRY, DEFAULT_PREFERENCES } from './settings.constants.js';
-import { encrypt } from '../../common/utils/crypto.util.js';
+import { decrypt, encrypt } from '../../common/utils/crypto.util.js';
 
 @Injectable()
 export class SettingsService {
@@ -35,7 +35,7 @@ export class SettingsService {
     @InjectModel(GatewayCredential.name)
     private gatewayModel: Model<GatewayCredentialDocument>,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   // ================= Profile =================
 
@@ -240,5 +240,19 @@ export class SettingsService {
       .updateOne({ mode }, { $set: set }, { upsert: true, runValidators: true })
       .exec();
     return this.getGateway(mode);
+  }
+
+  // INTERNAL ONLY: decrypted secret for server-side Stripe calls.
+  // Never return this from a controller.
+  async getGatewaySecret(mode: 'sandbox' | 'live'): Promise<string> {
+    const cred = await this.gatewayModel
+      .findOne({ mode })
+      .select('+secretKeyEnc')
+      .exec();
+    if (!cred?.secretKeyEnc) {
+      throw new NotFoundException(`No ${mode} payment gateway credentials saved`);
+    }
+    const key = this.config.getOrThrow<string>('CREDENTIALS_ENCRYPTION_KEY');
+    return decrypt(cred.secretKeyEnc, key);
   }
 }
