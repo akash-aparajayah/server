@@ -12,6 +12,7 @@ import { memoryStorage } from 'multer';
 import { S3Service } from './s3.service.js';
 import { MAX_DOC_BYTES } from './uploads.constants.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 
 enum Folder {
   Products = 'products',
@@ -25,6 +26,7 @@ export class UploadsController {
   constructor(private readonly s3: S3Service) {}
 
   // POST /uploads/:folder   form-data: file=<binary>
+  @Public()
   @ResponseMessage('File uploaded successfully')
   @Post(':folder')
   @UseInterceptors(
