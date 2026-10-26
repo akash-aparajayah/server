@@ -15,10 +15,6 @@ export class CreateEntityDto {
   name: string;
 
   @IsOptional()
-  @IsUrl()
-  imageUrl?: string;
-
-  @IsOptional()
   @IsString()
   @MaxLength(500)
   description?: string;

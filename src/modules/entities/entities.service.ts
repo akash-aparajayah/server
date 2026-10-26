@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+
 import { Entity, EntityDocument } from './schemas/entity.schema.js';
 import {
   SubEntity,
@@ -16,32 +17,74 @@ import { UpdateEntityDto } from './dto/update-entity.dto.js';
 import { Role } from '../../common/enums/role.enum.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { ApiKey, ApiKeyDocument } from '../api-keys/schemas/api-key.schema.js';
+import { S3Service } from '../uploads/s3.service.js';
 
 @Injectable()
 export class EntitiesService {
   constructor(
-    @InjectModel(Entity.name) private entityModel: Model<EntityDocument>,
+    @InjectModel(Entity.name)
+    private readonly entityModel: Model<EntityDocument>,
+
     @InjectModel(SubEntity.name)
-    private subEntityModel: Model<SubEntityDocument>,
-    @InjectModel(ApiKey.name) private apiKeyModel: Model<ApiKeyDocument>,
+    private readonly subEntityModel: Model<SubEntityDocument>,
+
+    @InjectModel(ApiKey.name)
+    private readonly apiKeyModel: Model<ApiKeyDocument>,
+
+    private readonly s3Service: S3Service,
   ) {}
 
-  // ApiKeysService.validate use pannum (owner check illa, key already verified)
+  // Convert stored S3 key to CDN URL for API responses.
+  private toEntityResponse<T extends { imageUrl?: string | null }>(entity: T) {
+    return {
+      ...entity,
+      imageUrl: entity.imageUrl ? this.s3Service.urlFor(entity.imageUrl) : null,
+    };
+  }
+
+  // Used by API key validation.
   async findActiveById(id: string) {
     return this.entityModel.findOne({ _id: id, isActive: true }).exec();
   }
-  async create(dto: CreateEntityDto, userId: string) {
+
+  // Create entity and optionally upload its image to S3.
+  async create(
+    dto: CreateEntityDto,
+    userId: string,
+    file?: Express.Multer.File,
+  ) {
+    let imageKey: string | undefined;
+
     try {
-      return await this.entityModel.create({
+      if (file) {
+        const uploaded = await this.s3Service.upload('entities', file);
+        imageKey = uploaded.key;
+      }
+
+      const entity = await this.entityModel.create({
         ...dto,
+        ...(imageKey ? { imageUrl: imageKey } : {}),
         createdBy: userId,
         updatedBy: userId,
       });
-    } catch (e: any) {
-      if (e.code === 11000)
+
+      return this.toEntityResponse(entity.toObject());
+    } catch (e: unknown) {
+      if (imageKey) {
+        await this.s3Service.delete(imageKey);
+      }
+
+      if (
+        typeof e === 'object' &&
+        e !== null &&
+        'code' in e &&
+        e.code === 11000
+      ) {
         throw new ConflictException(
           'You already have an entity with this name',
         );
+      }
+
       throw e;
     }
   }
@@ -61,7 +104,6 @@ export class EntitiesService {
 
     const entityIds = entities.map((entity) => entity._id.toString());
 
-    // Fetch sub-entities and support existing string/ObjectId data.
     const subEntities = await this.subEntityModel
       .find({
         $expr: {
@@ -76,7 +118,6 @@ export class EntitiesService {
 
     for (const subEntity of subEntities) {
       const entityId = String(subEntity.entity);
-
       const existing = subEntitiesByEntity.get(entityId) ?? [];
 
       existing.push(subEntity);
@@ -84,7 +125,7 @@ export class EntitiesService {
     }
 
     return entities.map((entity) => ({
-      ...entity,
+      ...this.toEntityResponse(entity),
       subEntities: (subEntitiesByEntity.get(entity._id.toString()) ?? []).map(
         (subEntity) => ({
           id: subEntity._id,
@@ -94,40 +135,80 @@ export class EntitiesService {
     }));
   }
 
-  // SubEntitiesService idhaiyum use pannum (owner check)
+  // Used by SubEntitiesService for ownership validation.
   async findOne(id: string, user: AuthUser) {
     const entity = await this.entityModel.findById(id).exec();
-    if (!entity) throw new NotFoundException('Entity not found');
+
+    if (!entity) {
+      throw new NotFoundException('Entity not found');
+    }
 
     const isOwner = entity.createdBy.toString() === user.sub;
+
     if (!isOwner && user.role !== Role.ADMIN) {
       throw new ForbiddenException('Not your entity');
     }
-    return entity;
+
+    return this.toEntityResponse(entity.toObject());
   }
 
   async update(id: string, dto: UpdateEntityDto, user: AuthUser) {
     const entity = await this.findOne(id, user);
-    Object.assign(entity, dto, { updatedBy: user.sub });
+
+    // findOne returns a response with CDN URL, so fetch the document
+    // separately to avoid accidentally saving that CDN URL to MongoDB.
+    const entityDocument = await this.entityModel.findById(id).exec();
+
+    if (!entityDocument) {
+      throw new NotFoundException('Entity not found');
+    }
+
+    Object.assign(entityDocument, dto, {
+      updatedBy: user.sub,
+    });
+
     try {
-      return await entity.save();
-    } catch (e: any) {
-      if (e.code === 11000)
+      const updatedEntity = await entityDocument.save();
+
+      return this.toEntityResponse(updatedEntity.toObject());
+    } catch (e: unknown) {
+      if (
+        typeof e === 'object' &&
+        e !== null &&
+        'code' in e &&
+        e.code === 11000
+      ) {
         throw new ConflictException(
           'You already have an entity with this name',
         );
+      }
+
       throw e;
     }
   }
 
-  // entity delete pannina adhoda sub entities-um delete aagum
+  // Deactivate related API keys and remove sub-entities.
   async remove(id: string, user: AuthUser) {
-    const entity = await this.findOne(id, user);
+    const entity = await this.entityModel.findById(id).exec();
+
+    if (!entity) {
+      throw new NotFoundException('Entity not found');
+    }
+
+    const isOwner = entity.createdBy.toString() === user.sub;
+
+    if (!isOwner && user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Not your entity');
+    }
+
     await this.subEntityModel.deleteMany({ entity: entity._id }).exec();
+
     await this.apiKeyModel
       .updateMany({ entityId: entity._id }, { isActive: false })
       .exec();
+
     await entity.deleteOne();
+
     return { deleted: true };
   }
 }
