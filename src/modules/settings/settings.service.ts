@@ -79,7 +79,7 @@ export class SettingsService {
 
   private profileView(user: UserDocument) {
     const u = user.toObject();
-    const cdnUrl = process.env.ASSET_BASE_URL?.replace(/\/$/, '');
+    const cdnUrl = process.env.CDN_URL?.replace(/\/$/, '');
 
     return {
       id: u._id,
