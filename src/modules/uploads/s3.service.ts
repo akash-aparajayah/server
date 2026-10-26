@@ -20,7 +20,7 @@ export class S3Service {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly prefix: string;
-  private readonly baseUrl?: string;
+  private readonly cdnUrl?: string;
 
   constructor(config: ConfigService) {
     // Bucket name must contain only the actual S3 bucket name.
@@ -33,7 +33,7 @@ export class S3Service {
       '',
     );
 
-    this.baseUrl = config.get<string>('ASSET_BASE_URL') || undefined;
+    this.cdnUrl = config.get<string>('CDN_URL') || undefined;
 
     const accessKeyId = config.get<string>('AWS_ACCESS_KEY_ID');
     const secretAccessKey = config.get<string>('AWS_SECRET_ACCESS_KEY');
@@ -51,7 +51,7 @@ export class S3Service {
 
   // Generate a URL when an asset base URL is configured.
   urlFor(key: string): string | null {
-    return this.baseUrl ? `${this.baseUrl.replace(/\/+$/, '')}/${key}` : null;
+    return this.cdnUrl ? `${this.cdnUrl.replace(/\/+$/, '')}/${key}` : null;
   }
 
   async upload(
