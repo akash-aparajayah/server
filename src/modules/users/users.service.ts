@@ -11,10 +11,15 @@ import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { sha256 } from '../../common/utils/hash.util.js';
 import { Role } from '../../common/enums/role.enum.js';
+import { S3Service } from '../uploads/s3.service.js';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
+    private readonly s3Service: S3Service,
+  ) {}
 
   async create(dto: CreateUserDto) {
     const exists = await this.userModel.exists({
@@ -40,18 +45,18 @@ export class UsersService {
       .exec();
   }
 
-async findOne(id: string) {
-  const user = await this.userModel
-    .findOne({ _id: id, isActive: true })
-    .select('name email role isActive')
-    .exec();
+  async findOne(id: string) {
+    const user = await this.userModel
+      .findOne({ _id: id, isActive: true })
+      .select('name email role isActive')
+      .exec();
 
-  if (!user) {
-    throw new NotFoundException('Active user not found');
+    if (!user) {
+      throw new NotFoundException('Active user not found');
+    }
+
+    return user;
   }
-
-  return user;
-}
 
   // used later by auth: includes the password hash
   findByEmail(email: string) {
@@ -111,5 +116,35 @@ async findOne(id: string) {
 
   findByIdWithRefresh(id: string) {
     return this.userModel.findById(id).select('+refreshTokenHash').exec();
+  }
+
+  async updateProfileImage(userId: string, file: Express.Multer.File) {
+    const uploaded = await this.s3Service.upload('users', file);
+
+    const user = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, isActive: true },
+        {
+          $set: {
+            profileImageKey: uploaded.key,
+          },
+        },
+        {
+          returnDocument: 'after',
+          runValidators: true,
+        },
+      )
+      .select('-password -refreshTokenHash')
+      .exec();
+
+    if (!user) {
+      await this.s3Service.delete(uploaded.key);
+      throw new NotFoundException('Active user not found');
+    }
+
+    return {
+      ...user.toObject(),
+      profileImageUrl: this.s3Service.urlFor(uploaded.key),
+    };
   }
 }

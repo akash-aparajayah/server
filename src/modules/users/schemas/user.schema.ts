@@ -33,6 +33,9 @@ export class User {
   @Prop({ type: String, default: null, select: false })
   refreshTokenHash: string | null;
 
+  @Prop({ type: String, default: null })
+  profileImageKey: string | null;
+
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 }

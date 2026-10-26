@@ -19,6 +19,7 @@ enum Folder {
   Bundles = 'bundles',
   Entities = 'entities',
   Terms = 'terms',
+  Users = 'users',
 }
 
 @Controller('uploads')
