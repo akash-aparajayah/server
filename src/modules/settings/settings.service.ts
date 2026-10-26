@@ -35,7 +35,7 @@ export class SettingsService {
     @InjectModel(GatewayCredential.name)
     private gatewayModel: Model<GatewayCredentialDocument>,
     private readonly config: ConfigService,
-  ) { }
+  ) {}
 
   // ================= Profile =================
 
@@ -78,13 +78,17 @@ export class SettingsService {
   }
 
   private profileView(user: UserDocument) {
-    const u: any = user;
+    const u = user.toObject();
+    const cdnUrl = process.env.ASSET_BASE_URL?.replace(/\/$/, '');
+
     return {
       id: u._id,
       name: u.name,
       email: u.email,
       phone: u.phone ?? null,
       role: u.role,
+      profileImageUrl:
+        cdnUrl && u.profileImageKey ? `${cdnUrl}/${u.profileImageKey}` : null,
     };
   }
 
@@ -250,7 +254,9 @@ export class SettingsService {
       .select('+secretKeyEnc')
       .exec();
     if (!cred?.secretKeyEnc) {
-      throw new NotFoundException(`No ${mode} payment gateway credentials saved`);
+      throw new NotFoundException(
+        `No ${mode} payment gateway credentials saved`,
+      );
     }
     const key = this.config.getOrThrow<string>('CREDENTIALS_ENCRYPTION_KEY');
     return decrypt(cred.secretKeyEnc, key);
