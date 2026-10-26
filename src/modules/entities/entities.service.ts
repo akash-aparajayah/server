@@ -32,7 +32,7 @@ export class EntitiesService {
     private readonly apiKeyModel: Model<ApiKeyDocument>,
 
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   // Convert stored S3 key to CDN URL for API responses.
   private toEntityResponse<T extends { imageUrl?: string | null }>(entity: T) {
@@ -152,37 +152,31 @@ export class EntitiesService {
     return this.toEntityResponse(entity.toObject());
   }
 
-  async update(id: string, dto: UpdateEntityDto, user: AuthUser) {
-    const entity = await this.findOne(id, user);
+  async update(id: string, dto: UpdateEntityDto, user: AuthUser, file?: Express.Multer.File) {
+    await this.findOne(id, user); // ownership check
 
-    // findOne returns a response with CDN URL, so fetch the document
-    // separately to avoid accidentally saving that CDN URL to MongoDB.
     const entityDocument = await this.entityModel.findById(id).exec();
+    if (!entityDocument) throw new NotFoundException('Entity not found');
 
-    if (!entityDocument) {
-      throw new NotFoundException('Entity not found');
-    }
-
-    Object.assign(entityDocument, dto, {
-      updatedBy: user.sub,
-    });
+    const oldKey = entityDocument.imageUrl;
+    let newKey: string | undefined;
 
     try {
-      const updatedEntity = await entityDocument.save();
+      if (file) newKey = (await this.s3Service.upload('entities', file)).key;
 
-      return this.toEntityResponse(updatedEntity.toObject());
+      Object.assign(entityDocument, dto, {
+        updatedBy: user.sub,
+        ...(newKey ? { imageUrl: newKey } : {}),
+      });
+      const updated = await entityDocument.save();
+
+      if (newKey && oldKey) await this.s3Service.delete(oldKey); // remove the old image
+      return this.toEntityResponse(updated.toObject());
     } catch (e: unknown) {
-      if (
-        typeof e === 'object' &&
-        e !== null &&
-        'code' in e &&
-        e.code === 11000
-      ) {
-        throw new ConflictException(
-          'You already have an entity with this name',
-        );
+      if (newKey) await this.s3Service.delete(newKey); // save failed: remove the new upload
+      if (typeof e === 'object' && e !== null && 'code' in e && e.code === 11000) {
+        throw new ConflictException('You already have an entity with this name');
       }
-
       throw e;
     }
   }

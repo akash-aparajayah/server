@@ -37,6 +37,7 @@ import { ProvidersModule } from './modules/providers/providers.module.js';
 import { PublicApiModule } from './modules/public-api/public-api.module.js';
 import { StripeModule } from './modules/stripe/stripe.module.js';
 import { HistoryModule } from './modules/history/history.module.js';
+import { ApiDocsModule } from './modules/api-docs/api-docs.module.js';
 
 // Application settings and file uploads
 import { SettingsModule } from './modules/settings/settings.module.js';
@@ -114,6 +115,7 @@ import { UploadsModule } from './modules/uploads/uploads.module.js';
     PublicApiModule,
     StripeModule,
     HistoryModule,
+    ApiDocsModule,
 
     // Other application features
     SettingsModule,

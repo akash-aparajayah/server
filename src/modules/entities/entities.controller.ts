@@ -23,7 +23,7 @@ import type { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 
 @Controller('entities')
 export class EntitiesController {
-  constructor(private readonly entitiesService: EntitiesService) {}
+  constructor(private readonly entitiesService: EntitiesService) { }
 
   @ResponseMessage('Entity created successfully')
   @Post('create-entity')
@@ -67,15 +67,19 @@ export class EntitiesController {
 
   @ResponseMessage('Entity updated successfully')
   @Patch(':id/update-entity')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMAGE_BYTES, files: 1 },
+    }),
+  )
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateEntityDto,
     @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.entitiesService.update(id, dto, {
-      sub: user.sub,
-      role: user.role,
-    });
+    return this.entitiesService.update(id, dto, { sub: user.sub, role: user.role }, file);
   }
 
   @ResponseMessage('Entity and its sub entities deleted successfully')
