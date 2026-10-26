@@ -87,7 +87,7 @@ export class SettingsService {
       email: u.email,
       phone: u.phone ?? null,
       role: u.role,
-      profileImageUrl:
+      profileImageKey:
         cdnUrl && u.profileImageKey ? `${cdnUrl}/${u.profileImageKey}` : null,
     };
   }
