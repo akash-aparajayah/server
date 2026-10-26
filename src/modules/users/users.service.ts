@@ -142,9 +142,14 @@ export class UsersService {
       throw new NotFoundException('Active user not found');
     }
 
+    const cdnUrl = process.env.CDN_URL?.replace(/\/+$/, '');
+
     return {
       ...user.toObject(),
-      profileImageUrl: this.s3Service.urlFor(uploaded.key),
+      profileImageKey:
+        cdnUrl && user.profileImageKey
+          ? `${cdnUrl}/${user.profileImageKey}`
+          : user.profileImageKey,
     };
   }
 }
