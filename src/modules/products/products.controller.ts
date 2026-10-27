@@ -7,14 +7,22 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 import { ProductsService } from './products.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { QueryProductDto } from './dto/query-product.dto.js';
 
-import { ProductDocument } from './schemas/product.schema.js';
+import type { ProductDocument } from './schemas/product.schema.js';
+import type {
+  PaginatedProductsResponse,
+  ProductFiles,
+} from './products.service.js';
 
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -26,26 +34,35 @@ type CurrentUserPayload = {
   sub: string;
 };
 
-type PaginatedProductsResponse = {
-  items: ProductDocument[];
-  total: number;
-  page: number;
-  limit: number;
-};
+const productImageUpload = FileFieldsInterceptor(
+  [
+    { name: 'termsUrl', maxCount: 1 },
+    { name: 'imageUrl', maxCount: 1 },
+  ],
+  {
+    storage: memoryStorage(),
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 2,
+    },
+  },
+);
 
 @Controller('products')
 @Roles(Role.ADMIN)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  // Create product draft.
+  // Create product draft and optionally upload marketplace files.
   @Post('create-product')
+  @UseInterceptors(productImageUpload)
   @ResponseMessage('Product draft created successfully')
   create(
     @Body() dto: CreateProductDto,
     @CurrentUser() user: CurrentUserPayload,
+    @UploadedFiles() files: ProductFiles,
   ): Promise<ProductDocument> {
-    return this.productsService.create(dto, user.sub);
+    return this.productsService.create(dto, user.sub, files);
   }
 
   // Get all products with pagination, search, and filters.
@@ -64,15 +81,17 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 
-  // Update product, pricing, margin, marketplace, or dashboard.
+  // Update product fields and optionally replace marketplace files.
   @Patch(':id/update-product')
+  @UseInterceptors(productImageUpload)
   @ResponseMessage('Product updated successfully')
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateProductDto,
     @CurrentUser() user: CurrentUserPayload,
+    @UploadedFiles() files: ProductFiles,
   ): Promise<ProductDocument> {
-    return this.productsService.update(id, dto, user.sub);
+    return this.productsService.update(id, dto, user.sub, files);
   }
 
   // Publish product.

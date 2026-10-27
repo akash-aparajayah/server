@@ -6,6 +6,7 @@ import {
     ProductTemplate,
     ProductTemplateSchema,
 } from './schemas/product-template.schema.js';
+import { S3Service } from '../uploads/s3.service.js';
 
 @Module({
     imports: [
@@ -14,7 +15,7 @@ import {
         ]),
     ],
     controllers: [ProductTemplatesController],
-    providers: [ProductTemplatesService],
-    exports: [ProductTemplatesService],
+    providers: [ProductTemplatesService,S3Service],
+    exports: [ProductTemplatesService,S3Service],
 })
 export class ProductTemplatesModule { }

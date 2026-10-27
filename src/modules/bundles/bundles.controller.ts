@@ -9,7 +9,11 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 import { BundlesService } from './bundles.service.js';
 import { CreateBundleDto } from './dto/create-bundle.dto.js';
@@ -23,65 +27,83 @@ import { Role } from '../../common/enums/role.enum.js';
 
 import type { BundleDocument } from './schemas/bundle.schema.js';
 import type { PaginatedBundlesResponse } from './bundles.service.js';
+import type { Express } from 'express';
+
+export type BundleFiles = {
+  backgroundImage?: Express.Multer.File[];
+};
+
+const bundleImageUpload = FileFieldsInterceptor(
+  [{ name: 'backgroundImage', maxCount: 1 }],
+  {
+    storage: memoryStorage(),
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 1,
+    },
+  },
+);
 
 @Controller('bundles')
 export class BundlesController {
   constructor(private readonly bundlesService: BundlesService) {}
 
-  // Create a new bundle. Only administrators can create bundles.
   @Roles(Role.ADMIN)
   @ResponseMessage('Bundle created successfully')
   @Post('create-bundles')
+  @UseInterceptors(bundleImageUpload)
   create(
     @Body() dto: CreateBundleDto,
     @CurrentUser() user: { sub: string },
+    @UploadedFiles() files: BundleFiles,
   ): Promise<BundleDocument> {
-    return this.bundlesService.create(dto, user.sub);
+    return this.bundlesService.create(
+      dto,
+      user.sub,
+      files?.backgroundImage?.[0],
+    );
   }
 
-  // get dashBoard DashboardContent
   @ResponseMessage('Dashboard Bundles Data fetched successfully')
   @Get('dashBoard-bundles')
-  dashBoardData(): Promise<any> {
+  dashBoardData(): Promise<unknown> {
     return this.bundlesService.dashBoardData();
   }
 
-  // Get active bundles with pagination and optional search.
   @ResponseMessage('Bundles fetched successfully')
   @Get('get-all-bundles')
   findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe)
-    page: number,
-
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe)
-    limit: number,
-
-    @Query('search')
-    search?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string,
   ): Promise<PaginatedBundlesResponse> {
     return this.bundlesService.findAll(page, limit, search);
   }
 
-  // Get one active bundle by its MongoDB ObjectId.
   @ResponseMessage('Bundle fetched successfully')
   @Get(':id/get-bundle')
   findOne(@Param('id', ParseObjectIdPipe) id: string): Promise<BundleDocument> {
     return this.bundlesService.findOne(id);
   }
 
-  // Update an existing bundle. Only administrators can update bundles.
   @Roles(Role.ADMIN)
   @ResponseMessage('Bundle updated successfully')
   @Patch(':id/update-bundles')
+  @UseInterceptors(bundleImageUpload)
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateBundleDto,
     @CurrentUser() user: { sub: string },
+    @UploadedFiles() files: BundleFiles,
   ): Promise<BundleDocument> {
-    return this.bundlesService.update(id, dto, user.sub);
+    return this.bundlesService.update(
+      id,
+      dto,
+      user.sub,
+      files?.backgroundImage?.[0],
+    );
   }
 
-  // Soft-delete a bundle. Only administrators can delete bundles.
   @Roles(Role.ADMIN)
   @ResponseMessage('Bundle deleted successfully')
   @Delete(':id/delete-bundles')

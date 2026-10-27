@@ -12,6 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 import { ProvidersService } from './providers.service.js';
 import { ProviderMode } from './schemas/provider.schema.js';
@@ -28,7 +29,7 @@ import type {
   ProviderView,
 } from './interfaces/provider.interface.js';
 
-import { logoUploadOptions } from '../../common/utils/logo-upload.js';
+import { MAX_IMAGE_BYTES } from '../uploads/uploads.constants.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -38,14 +39,22 @@ export class ProvidersController {
   constructor(private readonly providersService: ProvidersService) {}
 
   // POST /providers/create-providers
-  @ResponseMessage('Provider created successfully')
   @Post('create-providers')
-  @UseInterceptors(FileInterceptor('logo', logoUploadOptions))
-  async createProvider(
+  @UseInterceptors(
+    FileInterceptor('logo', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: MAX_IMAGE_BYTES,
+        files: 1,
+      },
+    }),
+  )
+  @ResponseMessage('Provider created successfully')
+  createProvider(
     @Body() dto: CreateProviderDto,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: { sub: string },
-  ): Promise<ProviderView> {
+  ) {
     return this.providersService.createProvider(dto, file, user.sub);
   }
 
@@ -56,7 +65,7 @@ export class ProvidersController {
     return this.providersService.findAll();
   }
 
-   // GET /providers/get-all-providers-list
+  // GET /providers/get-all-providers-list
   @ResponseMessage('Providers List fetched successfully')
   @Get('get-all-providers-list')
   async findProviderList(): Promise<any[]> {
@@ -73,15 +82,23 @@ export class ProvidersController {
   }
 
   // PATCH /providers/:id/update-providers
-  @ResponseMessage('Provider updated successfully')
   @Patch(':id/update-providers')
-  @UseInterceptors(FileInterceptor('logo', logoUploadOptions))
-  async updateProvider(
+  @UseInterceptors(
+    FileInterceptor('logo', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: MAX_IMAGE_BYTES,
+        files: 1,
+      },
+    }),
+  )
+  @ResponseMessage('Provider updated successfully')
+  updateProvider(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateProviderDto,
     @CurrentUser() user: { sub: string },
     @UploadedFile() file?: Express.Multer.File,
-  ): Promise<ProviderView> {
+  ) {
     return this.providersService.updateProvider(id, dto, user.sub, file);
   }
 
@@ -95,7 +112,6 @@ export class ProvidersController {
   }
 
   // GET /providers/:id/credentials/:mode/update-provider-credential
-  // Returns credential metadata and secret-presence flags only.
   @ResponseMessage('Credentials fetched successfully')
   @Get(':id/credentials/:mode/update-provider-credential')
   async findCredentials(
@@ -107,7 +123,6 @@ export class ProvidersController {
   }
 
   // PUT /providers/:id/credentials/:mode
-  // Add credentials for the first time.
   @ResponseMessage('Credentials added successfully')
   @Put(':id/credentials/:mode')
   async addCredentials(
@@ -121,7 +136,6 @@ export class ProvidersController {
   }
 
   // PATCH /providers/:id/credentials/:mode
-  // Update only the fields sent in the request.
   @ResponseMessage('Credentials updated successfully')
   @Patch(':id/credentials/:mode')
   async updateCredentials(
@@ -135,7 +149,6 @@ export class ProvidersController {
   }
 
   // DELETE /providers/:id/credentials/:mode
-  // Remove only the selected mode.
   @ResponseMessage('Credentials deleted successfully')
   @Delete(':id/credentials/:mode')
   async removeCredentials(
@@ -146,6 +159,4 @@ export class ProvidersController {
   ): Promise<DeleteResponse> {
     return this.providersService.removeCredentials(id, mode, user.sub);
   }
-
-
 }

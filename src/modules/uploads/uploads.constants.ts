@@ -4,6 +4,8 @@ export const UPLOAD_FOLDERS = [
   'entities',
   'terms',
   'users',
+  'providers',
+  'product-templates',
 ] as const;
 
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
@@ -28,6 +30,8 @@ export const FOLDER_RULES: Record<
   products: { types: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES },
   bundles: { types: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES },
   entities: { types: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES },
-  terms: { types: DOC_TYPES, maxBytes: MAX_DOC_BYTES },
   users: { types: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES },
+  providers: { types: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES },
+  terms: { types: DOC_TYPES, maxBytes: MAX_DOC_BYTES },
+  'product-templates': { types: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES },
 };

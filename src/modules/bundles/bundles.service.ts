@@ -1,9 +1,9 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
@@ -16,8 +16,10 @@ import {
 import { CreateBundleDto } from './dto/create-bundle.dto.js';
 import { UpdateBundleDto } from './dto/update-bundle.dto.js';
 import { sanitizeRichText } from '../../common/utils/sanitize.util.js';
+import { S3Service } from '../uploads/s3.service.js';
 
-// Response type for the paginated bundle list.
+import type { Express } from 'express';
+
 export interface PaginatedBundlesResponse {
   data: BundleDocument[];
   total: number;
@@ -28,21 +30,22 @@ export interface PaginatedBundlesResponse {
 
 @Injectable()
 export class BundlesService {
+  private readonly logger = new Logger(BundlesService.name);
+
   constructor(
     @InjectModel(Bundle.name)
     private readonly bundleModel: Model<BundleDocument>,
+    private readonly s3Service: S3Service,
   ) {}
 
-  // ---------- Helpers ----------
-
-  // Validate an ObjectId before using it in database operations.
+  // Validate MongoDB ObjectId.
   private validateObjectId(id: string, message = 'Bundle not found'): void {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException(message);
     }
   }
 
-  // Convert duplicate-key errors into a clear API response.
+  // Handle duplicate shortCode errors.
   private handleDuplicateError(error: unknown): never {
     if (
       typeof error === 'object' &&
@@ -56,92 +59,125 @@ export class BundlesService {
     throw error;
   }
 
-  // ---------- Create ----------
-
-  // Create a bundle and store the creator/updater IDs.
-  // Sanitize rich-text content before saving it.
-  async create(dto: CreateBundleDto, userId: string): Promise<BundleDocument> {
-    this.validateObjectId(userId, 'Invalid user ID');
+  // Delete an image from S3 without exposing sensitive details.
+  private async deleteS3Image(key?: string): Promise<void> {
+    if (!key) return;
 
     try {
+      await this.s3Service.delete(key);
+    } catch {
+      this.logger.warn('Unable to delete bundle image from S3');
+    }
+  }
+
+  // Return the S3 URL in API responses without saving the URL to MongoDB.
+  private toResponse(bundle: BundleDocument): BundleDocument {
+    const key = bundle.template?.backgroundImage;
+
+    if (key) {
+      bundle.template.backgroundImage = this.s3Service.urlFor(key) ?? '';
+    }
+
+    return bundle;
+  }
+
+  // Create bundle.
+  async create(
+    dto: CreateBundleDto,
+    userId: string,
+    backgroundImage?: Express.Multer.File,
+  ): Promise<BundleDocument> {
+    this.validateObjectId(userId, 'Invalid user ID');
+
+    let uploadedKey: string | undefined;
+
+    try {
+      const templateData = { ...dto.template };
+
+      if (backgroundImage) {
+        const uploaded = await this.s3Service.upload(
+          'bundles',
+          backgroundImage,
+        );
+
+        uploadedKey = uploaded.key;
+        templateData.backgroundImage = uploaded.key;
+      }
+
       const bundle = new this.bundleModel({
         ...dto,
+        template: templateData,
         longDescription: sanitizeRichText(dto.longDescription),
         createdBy: new Types.ObjectId(userId),
         updatedBy: new Types.ObjectId(userId),
       });
 
-      return await bundle.save();
+      const savedBundle = await bundle.save();
+
+      return this.toResponse(savedBundle);
     } catch (error: unknown) {
+      if (uploadedKey) {
+        await this.deleteS3Image(uploadedKey);
+      }
+
       return this.handleDuplicateError(error);
     }
   }
 
-  // ---------- DashBoard -----------
-  
-  async dashBoardData(): Promise<any> {
-    try {
-      const [totalData, pricingTypeCounts] = await Promise.all([
-        // Get the total number of records
-        this.bundleModel.countDocuments().exec(),
-
-        // Count records grouped by PricingType
-        this.bundleModel
-          .aggregate([
-            {
-              $group: {
-                _id: '$pricingType',
-                count: { $sum: 1 },
-              },
+  // Dashboard data.
+  async dashBoardData(): Promise<{
+    totalData: number;
+    pricingTypeCounts: {
+      addOn: number;
+      bundle: number;
+    };
+  }> {
+    const [totalData, pricingTypeCounts] = await Promise.all([
+      this.bundleModel.countDocuments().exec(),
+      this.bundleModel
+        .aggregate<{ _id: PricingType; count: number }>([
+          {
+            $group: {
+              _id: '$pricingType',
+              count: { $sum: 1 },
             },
-          ])
-          .exec(),
-      ]);
+          },
+        ])
+        .exec(),
+    ]);
 
-      // Return counts for both types, including zero counts
-      const counts = {
-        addOn: 0,
-        bundle: 0,
-      };
+    const counts = {
+      addOn: 0,
+      bundle: 0,
+    };
 
-      for (const item of pricingTypeCounts) {
-        if (item._id === PricingType.AddOn) {
-          counts.addOn = item.count;
-        } else if (item._id === PricingType.Bundle) {
-          counts.bundle = item.count;
-        }
+    for (const item of pricingTypeCounts) {
+      if (item._id === PricingType.AddOn) {
+        counts.addOn = item.count;
+      } else if (item._id === PricingType.Bundle) {
+        counts.bundle = item.count;
       }
-
-      return {
-        totalData,
-        pricingTypeCounts: counts,
-      };
-    } catch (error) {
-      throw error;
     }
+
+    return {
+      totalData,
+      pricingTypeCounts: counts,
+    };
   }
 
-  // ---------- Find All: Pagination + Search ----------
-
-  // Return active bundles with pagination and optional text search.
-  // Search checks name, shortCode, and longDescription.
-  // Creator and updater details are populated for each result.
+  // Get active bundles with pagination and search.
   async findAll(
     page = 1,
     limit = 10,
     search?: string,
   ): Promise<PaginatedBundlesResponse> {
-    // Apply safe pagination defaults and a maximum page size.
     page = Number.isInteger(page) && page > 0 ? page : 1;
-
     limit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 10;
 
-    // Only include active bundles.
     const filter: Record<string, any> = {
       status: true,
     };
 
-    // Escape regex characters so search input is treated literally.
     const searchTerm = search?.trim();
 
     if (searchTerm) {
@@ -150,31 +186,15 @@ export class BundlesService {
       filter.$or = [
         { name: { $regex: safeSearch, $options: 'i' } },
         { shortCode: { $regex: safeSearch, $options: 'i' } },
-        {
-          longDescription: {
-            $regex: safeSearch,
-            $options: 'i',
-          },
-        },
+        { longDescription: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 
     const skip = (page - 1) * limit;
 
-    // Fetch the requested page and total matching count concurrently.
     const [data, total] = await Promise.all([
       this.bundleModel
         .find(filter)
-        // .populate({
-        //   path: 'createdBy',
-        //   select: 'name',
-        //   model: 'User',
-        // })
-        // .populate({
-        //   path: 'updatedBy',
-        //   select: 'name',
-        //   model: 'User',
-        // })
         .select(
           '_id name pricingType price discountValue sellingPrice status createdAt',
         )
@@ -195,9 +215,7 @@ export class BundlesService {
     };
   }
 
-  // ---------- Find One ----------
-
-  // Return a single active bundle by ID.
+  // Get one active bundle.
   async findOne(id: string): Promise<BundleDocument> {
     this.validateObjectId(id);
 
@@ -222,32 +240,66 @@ export class BundlesService {
       throw new NotFoundException('Bundle not found');
     }
 
-    return bundle;
+    return this.toResponse(bundle);
   }
 
-  // ---------- Update ----------
-
-  // Update an active bundle and record the user who changed it.
-  // Sanitize longDescription when it is included in the request.
+  // Update bundle and optionally replace its S3 background image.
   async update(
     id: string,
     dto: UpdateBundleDto,
     userId: string,
+    backgroundImage?: Express.Multer.File,
   ): Promise<BundleDocument> {
     this.validateObjectId(id);
     this.validateObjectId(userId, 'Invalid user ID');
 
-    const data: Record<string, any> = {
-      ...dto,
-      updatedBy: new Types.ObjectId(userId),
-    };
+    const existing = await this.bundleModel.findOne({
+      _id: id,
+      status: true,
+    });
 
-    if (dto.longDescription !== undefined) {
-      data.longDescription = sanitizeRichText(dto.longDescription);
+    if (!existing) {
+      throw new NotFoundException('Bundle not found');
     }
 
+    const oldImageKey = existing.template?.backgroundImage;
+    let uploadedKey: string | undefined;
+    let savedSuccessfully = false;
+
     try {
-      const bundle = await this.bundleModel
+      const data: Record<string, any> = {
+        ...dto,
+        updatedBy: new Types.ObjectId(userId),
+      };
+
+      if (dto.longDescription !== undefined) {
+        data.longDescription = sanitizeRichText(dto.longDescription);
+      }
+
+      // Preserve existing template properties when updating only some fields.
+      if (dto.template || backgroundImage) {
+        data.template = {
+          ...existing.template,
+          ...(dto.template ?? {}),
+        };
+      }
+
+      // Upload replacement image to S3.
+      if (backgroundImage) {
+        const uploaded = await this.s3Service.upload(
+          'bundles',
+          backgroundImage,
+        );
+
+        uploadedKey = uploaded.key;
+
+        data.template = {
+          ...(data.template ?? existing.template),
+          backgroundImage: uploaded.key,
+        };
+      }
+
+      const updatedBundle = await this.bundleModel
         .findOneAndUpdate(
           {
             _id: id,
@@ -271,19 +323,29 @@ export class BundlesService {
         })
         .exec();
 
-      if (!bundle) {
+      if (!updatedBundle) {
         throw new NotFoundException('Bundle not found');
       }
 
-      return bundle;
+      savedSuccessfully = true;
+
+      // Delete the previous image only after the database update succeeds.
+      if (uploadedKey && oldImageKey && oldImageKey !== uploadedKey) {
+        await this.deleteS3Image(oldImageKey);
+      }
+
+      return this.toResponse(updatedBundle);
     } catch (error: unknown) {
+      // Do not delete the new image if MongoDB already references it.
+      if (uploadedKey && !savedSuccessfully) {
+        await this.deleteS3Image(uploadedKey);
+      }
+
       return this.handleDuplicateError(error);
     }
   }
 
-  // ---------- Soft Delete ----------
-
-  // Mark the bundle inactive instead of permanently deleting it.
+  // Soft-delete bundle.
   async remove(id: string): Promise<{ deleted: boolean }> {
     this.validateObjectId(id);
 

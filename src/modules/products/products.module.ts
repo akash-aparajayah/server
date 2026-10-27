@@ -5,6 +5,7 @@ import { ProductsService } from './products.service.js';
 import { Product, ProductSchema } from './schemas/product.schema.js';
 import { CategoriesModule } from '../categories/categories.module.js';
 import { BundlesModule } from '../bundles/bundles.module.js';
+import { S3Service } from '../uploads/s3.service.js';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { BundlesModule } from '../bundles/bundles.module.js';
     BundlesModule,
   ],
   controllers: [ProductsController],
-  providers: [ProductsService],
-  exports: [ProductsService], // margins module use pannum
+  providers: [ProductsService, S3Service],
+  exports: [ProductsService, S3Service],
 })
 export class ProductsModule {}

@@ -2,9 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
@@ -23,11 +23,19 @@ import { QueryProductDto } from './dto/query-product.dto.js';
 
 import { CategoriesService } from '../categories/categories.service.js';
 import { BundlesService } from '../bundles/bundles.service.js';
+import { S3Service } from '../uploads/s3.service.js';
 
 import { DiscountType } from '../../common/enums/discount-type.enum.js';
 import { sanitizeRichText } from '../../common/utils/sanitize.util.js';
 
-type PaginatedProductsResponse = {
+import type { Express } from 'express';
+
+export type ProductFiles = {
+  termsUrl?: Express.Multer.File[];
+  imageUrl?: Express.Multer.File[];
+};
+
+export type PaginatedProductsResponse = {
   items: ProductDocument[];
   total: number;
   page: number;
@@ -50,13 +58,58 @@ type MarginCalculationResult = {
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
-
     private readonly categories: CategoriesService,
     private readonly bundles: BundlesService,
-  ) { }
+    private readonly s3Service: S3Service,
+  ) {}
+
+  // --------------------------------------------------
+  // S3 HELPERS
+  // --------------------------------------------------
+
+  private async deleteS3Asset(key?: string): Promise<void> {
+    if (!key) return;
+
+    try {
+      await this.s3Service.delete(key);
+    } catch {
+      this.logger.warn('Unable to delete product asset from S3');
+    }
+  }
+
+  // Convert stored S3 object keys to URLs for the response only.
+  // The converted URLs are not saved back to MongoDB.
+  private toResponse(product: ProductDocument): ProductDocument {
+    if (product.marketplace?.termsUrl) {
+      product.marketplace.termsUrl =
+        this.s3Service.urlFor(product.marketplace.termsUrl) ?? '';
+    }
+
+    if (product.marketplace?.imageUrl) {
+      product.marketplace.imageUrl =
+        this.s3Service.urlFor(product.marketplace.imageUrl) ?? '';
+    }
+
+    return product;
+  }
+
+  private handleDuplicateError(error: unknown): never {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 11000
+    ) {
+      throw new ConflictException('Product name already exists');
+    }
+
+    throw error;
+  }
 
   // --------------------------------------------------
   // PRICING VALIDATION
@@ -98,7 +151,6 @@ export class ProductsService {
   private calculateMargin(p: MarginCalculationInput): MarginCalculationResult {
     const { wholesalePrice, markupType, markupValue, retailPrice } = p;
 
-    // Margin details can be completed in a later draft step.
     if (wholesalePrice == null || markupType == null || markupValue == null) {
       return {};
     }
@@ -118,7 +170,6 @@ export class ProductsService {
       throw new BadRequestException('Markup percentage cannot exceed 100');
     }
 
-    // Calculate markup amount.
     const rawMarkupAmount =
       markupType === MarkupType.Percent
         ? (wholesalePrice * markupValue) / 100
@@ -126,16 +177,13 @@ export class ProductsService {
 
     const markupAmount = Math.round(rawMarkupAmount * 100) / 100;
 
-    // Calculate markup percentage against wholesale price.
     const markupPercent =
       wholesalePrice > 0
         ? Math.round((markupAmount / wholesalePrice) * 10000) / 100
         : 0;
 
-    // Buy rate = wholesale price + markup amount.
     const buyRate = Math.round((wholesalePrice + markupAmount) * 100) / 100;
 
-    // Assumption: marginVsRetail = retailPrice - buyRate.
     const marginVsRetail =
       retailPrice == null
         ? undefined
@@ -198,12 +246,10 @@ export class ProductsService {
   private assertPublishable(product: ProductDocument): void {
     const missing: string[] = [];
 
-    // Overview.
     if (!product.providerId) {
       missing.push('providerId');
     }
 
-    // Marketplace content.
     if (!product.marketplace?.shortDescription) {
       missing.push('marketplace.shortDescription');
     }
@@ -216,7 +262,6 @@ export class ProductsService {
       missing.push('marketplace.pricingRenewalContent');
     }
 
-    // Dashboard content.
     if (!product.dashboard?.template) {
       missing.push('dashboard.template');
     }
@@ -237,12 +282,10 @@ export class ProductsService {
       missing.push('dashboard.shortDescription');
     }
 
-    // Retail pricing.
     if (product.retailPrice == null) {
       missing.push('retailPrice');
     }
 
-    // Margin inputs.
     if (product.wholesalePrice == null) {
       missing.push('wholesalePrice');
     }
@@ -255,7 +298,6 @@ export class ProductsService {
       missing.push('markupValue');
     }
 
-    // Calculated margin fields.
     if (product.markupAmount == null) {
       missing.push('markupAmount');
     }
@@ -272,7 +314,6 @@ export class ProductsService {
       missing.push('marginVsRetail');
     }
 
-    // Configuration: required only for Provider rules.
     if (
       product.audienceType === AudienceType.ProviderRules &&
       !product.configurationId
@@ -280,7 +321,6 @@ export class ProductsService {
       missing.push('configurationId');
     }
 
-    // Placement.
     if (!product.placements?.length) {
       missing.push('placements');
     }
@@ -289,7 +329,6 @@ export class ProductsService {
       missing.push('perUserFrequencyCap');
     }
 
-    // Publishing.
     if (!product.publishMode) {
       missing.push('publishMode');
     }
@@ -325,39 +364,62 @@ export class ProductsService {
   async create(
     dto: CreateProductDto,
     userId: string,
+    files?: ProductFiles,
   ): Promise<ProductDocument> {
     this.assertPricing(dto);
-
     await this.assertRefs(dto.category, dto.bundled);
-
     this.cleanContent(dto);
 
-    const marginData = this.calculateMargin({
-      wholesalePrice: dto.wholesalePrice,
-      markupType: dto.markupType,
-      markupValue: dto.markupValue,
-      retailPrice: dto.retailPrice,
-    });
+    let termsKey: string | undefined;
+    let imageKey: string | undefined;
+    let savedSuccessfully = false;
 
     try {
-      return await this.productModel.create({
+      const marketplace = { ...(dto.marketplace ?? {}) };
+
+      const termsFile = files?.termsUrl?.[0];
+      const imageFile = files?.imageUrl?.[0];
+
+      if (termsFile) {
+        const uploaded = await this.s3Service.upload('products', termsFile);
+        termsKey = uploaded.key;
+        marketplace.termsUrl = uploaded.key;
+      }
+
+      if (imageFile) {
+        const uploaded = await this.s3Service.upload('products', imageFile);
+        imageKey = uploaded.key;
+        marketplace.imageUrl = uploaded.key;
+      }
+
+      const marginData = this.calculateMargin({
+        wholesalePrice: dto.wholesalePrice,
+        markupType: dto.markupType,
+        markupValue: dto.markupValue,
+        retailPrice: dto.retailPrice,
+      });
+
+      const product = await this.productModel.create({
         ...dto,
+        marketplace,
         ...marginData,
         status: ProductStatus.Draft,
         createdBy: userId,
         updatedBy: userId,
       });
+
+      savedSuccessfully = true;
+
+      return this.toResponse(product);
     } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 11000
-      ) {
-        throw new ConflictException('Product name already exists');
+      if (!savedSuccessfully) {
+        await Promise.all([
+          this.deleteS3Asset(termsKey),
+          this.deleteS3Asset(imageKey),
+        ]);
       }
 
-      throw error;
+      return this.handleDuplicateError(error);
     }
   }
 
@@ -367,7 +429,6 @@ export class ProductsService {
 
   async findAll(q: QueryProductDto): Promise<PaginatedProductsResponse> {
     const page = Math.max(1, Number(q.page) || 1);
-
     const limit = Math.min(100, Math.max(1, Number(q.limit) || 10));
 
     const filter: Record<string, unknown> = {};
@@ -406,7 +467,7 @@ export class ProductsService {
     ]);
 
     return {
-      items,
+      items: items.map((product) => this.toResponse(product)),
       total,
       page,
       limit,
@@ -431,7 +492,7 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
+    return this.toResponse(product);
   }
 
   // --------------------------------------------------
@@ -442,6 +503,7 @@ export class ProductsService {
     id: string,
     dto: UpdateProductDto,
     userId: string,
+    files?: ProductFiles,
   ): Promise<ProductDocument> {
     const current = await this.productModel.findById(id).exec();
 
@@ -456,10 +518,8 @@ export class ProductsService {
     });
 
     await this.assertRefs(dto.category, dto.bundled);
-
     this.cleanContent(dto);
 
-    // Recalculate margin using updated and existing values.
     const marginData = this.calculateMargin({
       wholesalePrice: dto.wholesalePrice ?? current.wholesalePrice,
       markupType: dto.markupType ?? current.markupType,
@@ -467,7 +527,6 @@ export class ProductsService {
       retailPrice: dto.retailPrice ?? current.retailPrice,
     });
 
-    // Update nested content without deleting other fields.
     const { marketplace, dashboard, ...rest } = dto;
 
     const set: Record<string, unknown> = {
@@ -484,7 +543,29 @@ export class ProductsService {
       set[`dashboard.${key}`] = value;
     }
 
+    const oldTermsKey = current.marketplace?.termsUrl;
+    const oldImageKey = current.marketplace?.imageUrl;
+
+    let newTermsKey: string | undefined;
+    let newImageKey: string | undefined;
+    let savedSuccessfully = false;
+
     try {
+      const termsFile = files?.termsUrl?.[0];
+      const imageFile = files?.imageUrl?.[0];
+
+      if (termsFile) {
+        const uploaded = await this.s3Service.upload('products', termsFile);
+        newTermsKey = uploaded.key;
+        set['marketplace.termsUrl'] = uploaded.key;
+      }
+
+      if (imageFile) {
+        const uploaded = await this.s3Service.upload('products', imageFile);
+        newImageKey = uploaded.key;
+        set['marketplace.imageUrl'] = uploaded.key;
+      }
+
       const product = await this.productModel
         .findByIdAndUpdate(
           id,
@@ -494,24 +575,38 @@ export class ProductsService {
             runValidators: true,
           },
         )
+        .populate('category', 'name')
+        .populate('bundled', 'name shortCode')
+        .populate('configurationId', 'name')
+        .populate('createdBy', 'name')
+        .populate('updatedBy', 'name')
         .exec();
 
       if (!product) {
         throw new NotFoundException('Product not found');
       }
 
-      return product;
-    } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 11000
-      ) {
-        throw new ConflictException('Product name already exists');
+      savedSuccessfully = true;
+
+      // Delete old assets only after MongoDB has saved the replacement keys.
+      if (newTermsKey && oldTermsKey && newTermsKey !== oldTermsKey) {
+        await this.deleteS3Asset(oldTermsKey);
       }
 
-      throw error;
+      if (newImageKey && oldImageKey && newImageKey !== oldImageKey) {
+        await this.deleteS3Asset(oldImageKey);
+      }
+
+      return this.toResponse(product);
+    } catch (error: unknown) {
+      if (!savedSuccessfully) {
+        await Promise.all([
+          this.deleteS3Asset(newTermsKey),
+          this.deleteS3Asset(newImageKey),
+        ]);
+      }
+
+      return this.handleDuplicateError(error);
     }
   }
 
@@ -526,7 +621,6 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    // Calculate margin values before validating publishing.
     const marginData = this.calculateMargin({
       wholesalePrice: product.wholesalePrice,
       markupType: product.markupType,
@@ -547,7 +641,9 @@ export class ProductsService {
 
     product.updatedBy = userId as never;
 
-    return product.save();
+    const savedProduct = await product.save();
+
+    return this.toResponse(savedProduct);
   }
 
   // --------------------------------------------------
@@ -565,6 +661,10 @@ export class ProductsService {
       deleted: true,
     };
   }
+
+  // --------------------------------------------------
+  // OTHER HELPERS
+  // --------------------------------------------------
 
   async findByIds(ids: string[]) {
     return this.productModel

@@ -1,3 +1,5 @@
+// src/modules/providers/providers.service.ts
+
 import {
   BadRequestException,
   ConflictException,
@@ -8,8 +10,6 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { unlink } from 'node:fs/promises';
-import { isAbsolute, relative, resolve } from 'node:path';
 
 import {
   CredentialSet,
@@ -33,8 +33,8 @@ import type {
   ProviderView,
 } from './interfaces/provider.interface.js';
 
-import { LOGO_URL_PREFIX } from '../../common/utils/logo-upload.js';
 import { Counter } from '../../common/schemas/counter.schema.js';
+import { S3Service } from '../uploads/s3.service.js';
 
 const EDITABLE_FIELDS = [
   'apiUrl',
@@ -47,8 +47,6 @@ const EDITABLE_FIELDS = [
 
 type EditableField = (typeof EDITABLE_FIELDS)[number];
 
-// Change these to match the field names on your User schema
-// (e.g. 'firstName lastName email' or 'username email').
 const USER_SELECT = 'name';
 
 const AUDIT_POPULATE = [
@@ -66,7 +64,9 @@ export class ProvidersService {
 
     @InjectModel(Counter.name)
     private readonly counterModel: Model<Counter>,
-  ) { }
+
+    private readonly s3Service: S3Service,
+  ) {}
 
   // ---------- Helpers ----------
 
@@ -79,8 +79,8 @@ export class ProvidersService {
       .findById(id)
       .select(
         '+credentials ' +
-        '+credentials.clientSecret ' +
-        '+credentials.refreshToken',
+          '+credentials.clientSecret ' +
+          '+credentials.refreshToken',
       )
       .populate(AUDIT_POPULATE)
       .exec();
@@ -100,8 +100,6 @@ export class ProvidersService {
     return new Types.ObjectId(userId);
   }
 
-  // Re-populate createdBy / updatedBy (needed after save() or create(),
-  // because assigning an ObjectId replaces the populated document).
   private async populateAudit(
     doc: ProviderDocument,
   ): Promise<ProviderDocument> {
@@ -112,47 +110,56 @@ export class ProvidersService {
   private toAuditUser(user: unknown): AuditUserView | undefined {
     if (!user) return undefined;
 
-    // Populated user document
     if (typeof user === 'object' && user !== null && 'name' in user) {
       const u = user as {
         _id: Types.ObjectId;
         name?: string;
         email?: string;
       };
-      return { id: u._id.toString(), name: u.name, email: u.email };
+
+      return {
+        id: u._id.toString(),
+        name: u.name,
+        email: u.email,
+      };
     }
 
-    // Populated, but user has no `name` field (different schema)
     if (typeof user === 'object' && user !== null && '_id' in user) {
-      const u = user as { _id: Types.ObjectId; email?: string };
-      return { id: u._id.toString(), email: u.email };
+      const u = user as {
+        _id: Types.ObjectId;
+        email?: string;
+      };
+
+      return {
+        id: u._id.toString(),
+        email: u.email,
+      };
     }
 
-    // Not populated (plain ObjectId)
     return { id: String(user) };
   }
 
-  private toSetView(
-    c: CredentialSet,
-    withSecrets = false,
-  ): CredentialSetView {
+  private toSetView(c: CredentialSet, withSecrets = false): CredentialSetView {
     return {
       mode: c.mode,
       apiUrl: c.apiUrl,
       tokenUrl: c.tokenUrl,
       clientId: c.clientId,
       ...(withSecrets
-        ? { clientSecret: c.clientSecret, refreshToken: c.refreshToken }
+        ? {
+            clientSecret: c.clientSecret,
+            refreshToken: c.refreshToken,
+          }
         : {
-          hasClientSecret: Boolean(c.clientSecret),
-          hasRefreshToken: Boolean(c.refreshToken),
-        }),
+            hasClientSecret: Boolean(c.clientSecret),
+            hasRefreshToken: Boolean(c.refreshToken),
+          }),
       instanceUrl: c.instanceUrl,
       updatedAt: c.updatedAt,
     };
   }
 
-  // Returns real secret values. Use only for the protected credentials endpoint.
+  // Use only for the protected credentials endpoint.
   private toSetDetailView(c: CredentialSet): CredentialSetDetailView {
     return {
       mode: c.mode,
@@ -173,7 +180,12 @@ export class ProvidersService {
       name: doc.name,
       phone: doc.phone,
       email: doc.email,
-      logo: doc.logo,
+
+      // MongoDB stores the S3 object key; the API returns its URL.
+      logo: doc.logo
+        ? (this.s3Service.urlFor(doc.logo) ?? undefined)
+        : undefined,
+
       credentials: (doc.credentials ?? []).map((credential) =>
         this.toSetView(credential, withSecrets),
       ),
@@ -194,36 +206,16 @@ export class ProvidersService {
     );
   }
 
-  private async cleanupUploadedFile(file?: Express.Multer.File): Promise<void> {
-    if (!file?.filename) return;
-
-    await this.removeFile(`${LOGO_URL_PREFIX}/${file.filename}`);
-  }
-
-  private async removeFile(logo?: string): Promise<void> {
-    if (!logo) return;
-
-    const filePath = resolve(process.cwd(), logo.replace(/^\/+/, ''));
-
-    const relativePath = relative(process.cwd(), filePath);
-
-    // Never delete a file outside the application directory.
-    if (relativePath.startsWith('..') || isAbsolute(relativePath)) {
-      this.logger.warn('Skipped unsafe logo deletion path');
-      return;
-    }
+  /**
+   * Attempt cleanup without hiding the original database/API error.
+   */
+  private async deleteS3Logo(key?: string): Promise<void> {
+    if (!key) return;
 
     try {
-      await unlink(filePath);
-    } catch (error) {
-      const code =
-        typeof error === 'object' && error !== null && 'code' in error
-          ? (error as { code?: string }).code
-          : undefined;
-
-      if (code !== 'ENOENT') {
-        this.logger.warn('Unable to remove provider logo');
-      }
+      await this.s3Service.delete(key);
+    } catch {
+      this.logger.warn('Unable to remove provider logo from S3');
     }
   }
 
@@ -258,22 +250,23 @@ export class ProvidersService {
       throw new BadRequestException('Logo is required');
     }
 
-    let userObjectId: Types.ObjectId;
+    // Validate before uploading, so invalid user IDs do not create S3 objects.
+    const userObjectId = this.validateUserId(userId);
 
-    try {
-      userObjectId = this.validateUserId(userId);
-    } catch (error) {
-      await this.cleanupUploadedFile(file);
-      throw error;
+    const modes = (dto.credentials ?? []).map((c) => c.mode);
+
+    if (new Set(modes).size !== modes.length) {
+      throw new BadRequestException(
+        'Each credentials mode can only be sent once',
+      );
     }
 
-    const logo = `${LOGO_URL_PREFIX}/${file.filename}`;
+    let uploadedKey: string | undefined;
 
     try {
-      const modes = (dto.credentials ?? []).map((c) => c.mode);
-      if (new Set(modes).size !== modes.length) {
-        throw new BadRequestException('Each credentials mode can only be sent once');
-      }
+      // Upload the in-memory file to S3.
+      const uploaded = await this.s3Service.upload('providers', file);
+      uploadedKey = uploaded.key;
 
       const providerCode = await this.generateProviderCode();
 
@@ -282,7 +275,7 @@ export class ProvidersService {
         phone: dto.phone,
         email: dto.email,
         providerCode,
-        logo,
+        logo: uploadedKey,
         credentials: (dto.credentials ?? []).map((c) => ({
           ...c,
           updatedAt: new Date(),
@@ -296,7 +289,8 @@ export class ProvidersService {
 
       return this.toView(doc);
     } catch (error) {
-      await this.cleanupUploadedFile(file);
+      // Avoid leaving an uploaded object behind if provider creation fails.
+      await this.deleteS3Logo(uploadedKey);
 
       if (this.isDuplicateKeyError(error)) {
         throw new ConflictException(
@@ -333,8 +327,7 @@ export class ProvidersService {
   async findProviderList(): Promise<any[]> {
     const docs = await this.providerModel
       .find()
-      .select('id providerCode name')
-      .populate(AUDIT_POPULATE)
+      .select('providerCode name')
       .sort({ createdAt: -1 })
       .exec();
 
@@ -356,25 +349,11 @@ export class ProvidersService {
     userId: string,
     file?: Express.Multer.File,
   ): Promise<ProviderView> {
-    let userObjectId: Types.ObjectId;
-
-    try {
-      userObjectId = this.validateUserId(userId);
-    } catch (error) {
-      await this.cleanupUploadedFile(file);
-      throw error;
-    }
-
-    let doc: ProviderDocument;
-
-    try {
-      doc = await this.findWithCredentials(id);
-    } catch (error) {
-      await this.cleanupUploadedFile(file);
-      throw error;
-    }
+    const userObjectId = this.validateUserId(userId);
+    const doc = await this.findWithCredentials(id);
 
     const oldLogo = doc.logo;
+    let newLogoKey: string | undefined;
 
     if (dto.name !== undefined) {
       doc.name = dto.name;
@@ -388,8 +367,11 @@ export class ProvidersService {
       doc.email = dto.email;
     }
 
+    // Only upload when a replacement logo is provided.
     if (file) {
-      doc.logo = `${LOGO_URL_PREFIX}/${file.filename}`;
+      const uploaded = await this.s3Service.upload('providers', file);
+      newLogoKey = uploaded.key;
+      doc.logo = newLogoKey;
     }
 
     // Keep createdBy unchanged; update only the last editor.
@@ -398,7 +380,8 @@ export class ProvidersService {
     try {
       await doc.save();
     } catch (error) {
-      await this.cleanupUploadedFile(file);
+      // If saving fails, clean up the newly uploaded logo.
+      await this.deleteS3Logo(newLogoKey);
 
       if (this.isDuplicateKeyError(error)) {
         throw new ConflictException(
@@ -409,11 +392,11 @@ export class ProvidersService {
       throw error;
     }
 
-    if (file) {
-      await this.removeFile(oldLogo);
+    // Delete the old logo only after the database update succeeds.
+    if (newLogoKey && oldLogo && oldLogo !== newLogoKey) {
+      await this.deleteS3Logo(oldLogo);
     }
 
-    // updatedBy was replaced by a raw ObjectId, so populate again.
     await this.populateAudit(doc);
 
     return this.toView(doc);
@@ -430,7 +413,8 @@ export class ProvidersService {
       throw new NotFoundException('Provider not found');
     }
 
-    await this.removeFile(doc.logo);
+    // The database deletion succeeds even if S3 cleanup fails.
+    await this.deleteS3Logo(doc.logo);
 
     return { deleted: true };
   }
@@ -564,8 +548,8 @@ export class ProvidersService {
       .findById(id)
       .select(
         '+credentials ' +
-        '+credentials.clientSecret ' +
-        '+credentials.refreshToken',
+          '+credentials.clientSecret ' +
+          '+credentials.refreshToken',
       )
       .exec();
 

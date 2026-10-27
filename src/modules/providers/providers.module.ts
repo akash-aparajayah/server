@@ -6,6 +6,7 @@ import { ProvidersService } from './providers.service.js';
 
 import { Provider, ProviderSchema } from './schemas/provider.schema.js';
 import { Counter, CounterSchema } from '../../common/schemas/counter.schema.js';
+import { S3Service } from '../uploads/s3.service.js';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { Counter, CounterSchema } from '../../common/schemas/counter.schema.js';
     ]),
   ],
   controllers: [ProvidersController],
-  providers: [ProvidersService],
-  exports: [ProvidersService],
+  providers: [ProvidersService,S3Service],
+  exports: [ProvidersService, S3Service],
 })
 export class ProvidersModule {}
