@@ -203,6 +203,8 @@ export class EntitiesService {
 
     await entity.deleteOne();
 
+    if (entity.imageUrl) await this.s3Service.delete(entity.imageUrl);
+
     return { deleted: true };
   }
 }

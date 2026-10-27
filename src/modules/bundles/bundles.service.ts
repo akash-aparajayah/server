@@ -36,7 +36,7 @@ export class BundlesService {
     @InjectModel(Bundle.name)
     private readonly bundleModel: Model<BundleDocument>,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   // Validate MongoDB ObjectId.
   private validateObjectId(id: string, message = 'Bundle not found'): void {
@@ -279,7 +279,7 @@ export class BundlesService {
       // Preserve existing template properties when updating only some fields.
       if (dto.template || backgroundImage) {
         data.template = {
-          ...existing.template,
+          ...existing.toObject().template,
           ...(dto.template ?? {}),
         };
       }
@@ -294,7 +294,7 @@ export class BundlesService {
         uploadedKey = uploaded.key;
 
         data.template = {
-          ...(data.template ?? existing.template),
+          ...(data.template ?? existing.toObject().template),
           backgroundImage: uploaded.key,
         };
       }

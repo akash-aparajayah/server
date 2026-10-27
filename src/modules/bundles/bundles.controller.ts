@@ -24,6 +24,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { Role } from '../../common/enums/role.enum.js';
+import { JsonBodyInterceptor } from '../../common/interceptors/json-body.interceptor.js';
+import { MAX_IMAGE_BYTES } from '../uploads/uploads.constants.js';
 
 import type { BundleDocument } from './schemas/bundle.schema.js';
 import type { PaginatedBundlesResponse } from './bundles.service.js';
@@ -38,7 +40,7 @@ const bundleImageUpload = FileFieldsInterceptor(
   {
     storage: memoryStorage(),
     limits: {
-      fileSize: 5 * 1024 * 1024,
+      fileSize: MAX_IMAGE_BYTES,
       files: 1,
     },
   },
@@ -46,12 +48,12 @@ const bundleImageUpload = FileFieldsInterceptor(
 
 @Controller('bundles')
 export class BundlesController {
-  constructor(private readonly bundlesService: BundlesService) {}
+  constructor(private readonly bundlesService: BundlesService) { }
 
   @Roles(Role.ADMIN)
   @ResponseMessage('Bundle created successfully')
   @Post('create-bundles')
-  @UseInterceptors(bundleImageUpload)
+  @UseInterceptors(bundleImageUpload, JsonBodyInterceptor)
   create(
     @Body() dto: CreateBundleDto,
     @CurrentUser() user: { sub: string },
@@ -89,7 +91,7 @@ export class BundlesController {
   @Roles(Role.ADMIN)
   @ResponseMessage('Bundle updated successfully')
   @Patch(':id/update-bundles')
-  @UseInterceptors(bundleImageUpload)
+  @UseInterceptors(bundleImageUpload, JsonBodyInterceptor)
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateBundleDto,

@@ -19,7 +19,7 @@ export class UsersService {
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   async create(dto: CreateUserDto) {
     const exists = await this.userModel.exists({
@@ -119,6 +119,11 @@ export class UsersService {
   }
 
   async updateProfileImage(userId: string, file: Express.Multer.File) {
+    const previous = await this.userModel
+      .findOne({ _id: userId, isActive: true })
+      .select('profileImageKey')
+      .exec();
+
     const uploaded = await this.s3Service.upload('users', file);
 
     const user = await this.userModel
@@ -142,14 +147,20 @@ export class UsersService {
       throw new NotFoundException('Active user not found');
     }
 
+    if (previous?.profileImageKey && previous.profileImageKey !== uploaded.key) {
+      await this.s3Service.delete(previous.profileImageKey);
+    }
+
     const cdnUrl = process.env.CDN_URL?.replace(/\/+$/, '');
+    const fullUrl =
+      cdnUrl && user.profileImageKey
+        ? `${cdnUrl}/${user.profileImageKey}`
+        : null;
 
     return {
       ...user.toObject(),
-      profileImageKey:
-        cdnUrl && user.profileImageKey
-          ? `${cdnUrl}/${user.profileImageKey}`
-          : user.profileImageKey,
+      profileImageKey: fullUrl ?? user.profileImageKey,
+      profileImageUrl: fullUrl,
     };
   }
 }

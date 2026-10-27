@@ -66,7 +66,7 @@ export class ProvidersService {
     private readonly counterModel: Model<Counter>,
 
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   // ---------- Helpers ----------
 
@@ -79,8 +79,8 @@ export class ProvidersService {
       .findById(id)
       .select(
         '+credentials ' +
-          '+credentials.clientSecret ' +
-          '+credentials.refreshToken',
+        '+credentials.clientSecret ' +
+        '+credentials.refreshToken',
       )
       .populate(AUDIT_POPULATE)
       .exec();
@@ -147,13 +147,13 @@ export class ProvidersService {
       clientId: c.clientId,
       ...(withSecrets
         ? {
-            clientSecret: c.clientSecret,
-            refreshToken: c.refreshToken,
-          }
+          clientSecret: c.clientSecret,
+          refreshToken: c.refreshToken,
+        }
         : {
-            hasClientSecret: Boolean(c.clientSecret),
-            hasRefreshToken: Boolean(c.refreshToken),
-          }),
+          hasClientSecret: Boolean(c.clientSecret),
+          hasRefreshToken: Boolean(c.refreshToken),
+        }),
       instanceUrl: c.instanceUrl,
       updatedAt: c.updatedAt,
     };
@@ -305,7 +305,7 @@ export class ProvidersService {
   async findAll(): Promise<ProviderListView[]> {
     const docs = await this.providerModel
       .find()
-      .select('providerCode name phone email isActive createdBy updatedBy')
+      .select('providerCode name phone email logo isActive createdBy updatedBy')
       .populate(AUDIT_POPULATE)
       .sort({ createdAt: -1 })
       .exec();
@@ -316,6 +316,7 @@ export class ProvidersService {
       name: doc.name,
       phone: doc.phone,
       email: doc.email,
+      logo: doc.logo ? (this.s3Service.urlFor(doc.logo) ?? undefined) : undefined,
       isActive: doc.isActive,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
@@ -548,8 +549,8 @@ export class ProvidersService {
       .findById(id)
       .select(
         '+credentials ' +
-          '+credentials.clientSecret ' +
-          '+credentials.refreshToken',
+        '+credentials.clientSecret ' +
+        '+credentials.refreshToken',
       )
       .exec();
 

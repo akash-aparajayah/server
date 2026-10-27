@@ -29,6 +29,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe.js';
 import { Role } from '../../common/enums/role.enum.js';
+import { JsonBodyInterceptor } from '../../common/interceptors/json-body.interceptor.js';
+import { MAX_DOC_BYTES } from '../uploads/uploads.constants.js';
 
 type CurrentUserPayload = {
   sub: string;
@@ -42,7 +44,7 @@ const productImageUpload = FileFieldsInterceptor(
   {
     storage: memoryStorage(),
     limits: {
-      fileSize: 5 * 1024 * 1024,
+      fileSize: MAX_DOC_BYTES,
       files: 2,
     },
   },
@@ -51,11 +53,11 @@ const productImageUpload = FileFieldsInterceptor(
 @Controller('products')
 @Roles(Role.ADMIN)
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly productsService: ProductsService) { }
 
   // Create product draft and optionally upload marketplace files.
   @Post('create-product')
-  @UseInterceptors(productImageUpload)
+  @UseInterceptors(productImageUpload, JsonBodyInterceptor)
   @ResponseMessage('Product draft created successfully')
   create(
     @Body() dto: CreateProductDto,
@@ -83,7 +85,7 @@ export class ProductsController {
 
   // Update product fields and optionally replace marketplace files.
   @Patch(':id/update-product')
-  @UseInterceptors(productImageUpload)
+  @UseInterceptors(productImageUpload, JsonBodyInterceptor)
   @ResponseMessage('Product updated successfully')
   update(
     @Param('id', ParseObjectIdPipe) id: string,

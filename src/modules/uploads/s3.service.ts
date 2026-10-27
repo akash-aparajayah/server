@@ -51,7 +51,7 @@ export class S3Service {
 
   // Generate a URL when an asset base URL is configured.
   urlFor(key: string): string | null {
-    return this.cdnUrl ? `${this.cdnUrl.replace(/\/+$/, '')}/${key}` : null;
+    return this.cdnUrl ? `${this.cdnUrl.replace(/\/+$/, '')}/${key.replace(/^\/+/, '')}` : null;
   }
 
   async upload(

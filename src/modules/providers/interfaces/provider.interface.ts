@@ -58,6 +58,7 @@ export interface ProviderListView {
   updatedAt?: Date;
   createdBy?: AuditUserView;
   updatedBy?: AuditUserView;
+  logo?: string;
 }
 
 export interface ProviderCredentialSecrets {

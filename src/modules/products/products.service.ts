@@ -66,7 +66,7 @@ export class ProductsService {
     private readonly categories: CategoriesService,
     private readonly bundles: BundlesService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   // --------------------------------------------------
   // S3 HELPERS
@@ -381,7 +381,7 @@ export class ProductsService {
       const imageFile = files?.imageUrl?.[0];
 
       if (termsFile) {
-        const uploaded = await this.s3Service.upload('products', termsFile);
+        const uploaded = await this.s3Service.upload('terms', termsFile);
         termsKey = uploaded.key;
         marketplace.termsUrl = uploaded.key;
       }
@@ -555,7 +555,7 @@ export class ProductsService {
       const imageFile = files?.imageUrl?.[0];
 
       if (termsFile) {
-        const uploaded = await this.s3Service.upload('products', termsFile);
+        const uploaded = await this.s3Service.upload('terms', termsFile);
         newTermsKey = uploaded.key;
         set['marketplace.termsUrl'] = uploaded.key;
       }
@@ -656,6 +656,11 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException('Product not found');
     }
+
+    await Promise.all([
+      this.deleteS3Asset(product.marketplace?.termsUrl),
+      this.deleteS3Asset(product.marketplace?.imageUrl),
+    ]);
 
     return {
       deleted: true,
