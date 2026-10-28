@@ -12,6 +12,7 @@ import {
 } from '../sub-entities/schemas/sub-entity.schema.js';
 import { EntitiesModule } from '../entities/entities.module.js';
 import { SubEntitiesModule } from '../sub-entities/sub-entities.module.js';
+import { CustomersModule } from '../customers/customers.module.js';
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { SubEntitiesModule } from '../sub-entities/sub-entities.module.js';
         ]),
         EntitiesModule,
         SubEntitiesModule,
+        CustomersModule,
     ],
     controllers: [HistoryController],
     providers: [HistoryService],

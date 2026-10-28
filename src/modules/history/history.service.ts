@@ -14,6 +14,7 @@ import { EntitiesService } from '../entities/entities.service.js';
 import { SubEntitiesService } from '../sub-entities/sub-entities.service.js';
 import type { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { parseStored, toStored } from './history.util.js';
+import { CustomersService } from '../customers/customers.service.js';
 
 export interface RecordInput {
     keyId: string;
@@ -52,6 +53,7 @@ export class HistoryService {
         private subEntityModel: Model<SubEntityDocument>,
         private readonly entities: EntitiesService,
         private readonly subEntities: SubEntitiesService,
+        private readonly customers: CustomersService,
     ) { }
 
     // called by HistoryInterceptor (no logged-in user here)
@@ -78,6 +80,21 @@ export class HistoryService {
             requestBody: toStored(p.requestBody),
             responseBody: toStored(p.responseBody),
         });
+        // keep a customer list: save the customer from a successful create/update call
+        if (p.status === 'success' && (p.action === 'create-customer' || p.action === 'update-customer')) {
+            const c = p.responseBody as Record<string, any> | null;
+            if (c && typeof c === 'object' && c.object === 'customer' && typeof c.id === 'string') {
+                try {
+                    await this.customers.upsertFromStripe(c, {
+                        entityId: sub?.entity ?? null,
+                        subEntityId: p.subEntityId,
+                        live: p.environment === ApiKeyType.LIVE,
+                    });
+                } catch (e) {
+                    console.error('customer save failed', e);
+                }
+            }
+        }
     }
 
     // counts per id and environment, plus succeeded payment totals

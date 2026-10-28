@@ -6,8 +6,6 @@ import { Role } from '../src/common/enums/role.enum.js';
 
 export async function seedAdmin(): Promise<void> {
   try {
-    console.log('[SEED] Starting admin seeder...');
-
     // 1. Read environment variables
     const uri = process.env.MONGODB_URI;
     const name = process.env.ADMIN_NAME?.trim();
@@ -31,7 +29,6 @@ export async function seedAdmin(): Promise<void> {
 
     // 3. Connect to MongoDB
     await mongoose.connect(uri);
-    console.log('[SEED] MongoDB connected successfully');
 
     // 4. Access the users collection
     const users = mongoose.connection.collection('users');
@@ -41,7 +38,6 @@ export async function seedAdmin(): Promise<void> {
 
     if (existingUser) {
       if (existingUser.role === Role.ADMIN) {
-        console.log('[SEED] Admin already exists; skipping creation.');
         return;
       }
 
@@ -63,9 +59,6 @@ export async function seedAdmin(): Promise<void> {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-
-    console.log('[SEED] Admin created successfully');
-    console.log(`[SEED] Email: ${email}`);
   } catch (error: unknown) {
     console.error(
       '[SEED] Admin seeder failed:',
@@ -78,7 +71,6 @@ export async function seedAdmin(): Promise<void> {
     // 8. Close the MongoDB connection
     if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();
-      console.log('[SEED] MongoDB disconnected');
     }
   }
 }

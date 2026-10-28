@@ -81,11 +81,8 @@ export async function seedProductSignals(): Promise<void> {
   }
 
   try {
-    console.log('[SIGNALS] Connecting to MongoDB...');
 
     await mongoose.connect(mongoUri);
-
-    console.log('[SIGNALS] MongoDB connected.');
 
     const signalModel = mongoose.model(ProductSignal.name, ProductSignalSchema);
 
@@ -105,7 +102,6 @@ export async function seedProductSignals(): Promise<void> {
     const signals = parsed as LegacySignal[];
 
     if (signals.length === 0) {
-      console.log('[SIGNALS] No signals found.');
       return;
     }
 
@@ -183,12 +179,6 @@ export async function seedProductSignals(): Promise<void> {
     const result = await signalModel.bulkWrite(operations, {
       ordered: true,
     });
-
-    console.log('[SIGNALS] Seeding completed.');
-    console.log(`Input records: ${signals.length}`);
-    console.log(`Inserted: ${result.upsertedCount}`);
-    console.log(`Updated: ${result.modifiedCount}`);
-    console.log(`Matched: ${result.matchedCount}`);
   } catch (error: unknown) {
     console.error(
       '[SIGNALS] Seeding failed:',
@@ -199,7 +189,6 @@ export async function seedProductSignals(): Promise<void> {
   } finally {
     if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();
-      console.log('[SIGNALS] MongoDB disconnected.');
     }
   }
 }
